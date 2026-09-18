@@ -1,0 +1,5 @@
+# 토큰 파일은 숫자를 "정의"하는 곳이라 no_magic_numbers 가 전부 오탐이다.
+# 루트 .swiftlint.yml 위에 덧붙는 중첩 설정이며, 이 폴더에만 적용된다.
+# (훅과 CI 는 --config 없이 루트에서 swiftlint 를 실행해야 이 파일이 적용된다.)
+disabled_rules:
+  - no_magic_numbers
