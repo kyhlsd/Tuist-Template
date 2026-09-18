@@ -1,0 +1,42 @@
+// Release.xcconfig
+// App Store 배포용 설정.
+//
+// 여기에는 "환경마다 값이 갈리는 것"만 둔다.
+// 공통 값은 Tuist/ProjectDescriptionHelpers 쪽 Swift 코드에 있다.
+
+// MARK: - App identity
+// APP_NAME 은 Tuist 설정(AppConstants.appName)에서 온다.
+
+APP_DISPLAY_NAME = $(APP_NAME)
+BUNDLE_ID_SUFFIX =
+
+// MARK: - Versioning
+// CURRENT_PROJECT_VERSION 은 CI 에서 빌드 번호로 덮어쓴다.
+
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 1
+
+// MARK: - Compiler
+// wholemodule 최적화. 빌드는 느려지지만 런타임 성능이 좋다.
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited)
+SWIFT_OPTIMIZATION_LEVEL = -O
+SWIFT_COMPILATION_MODE = wholemodule
+GCC_OPTIMIZATION_LEVEL = s
+
+// MARK: - Build behavior
+// dSYM 이 있어야 크래시 리포트의 심볼이 복원된다.
+
+ONLY_ACTIVE_ARCH = NO
+ENABLE_TESTABILITY = NO
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+VALIDATE_PRODUCT = YES
+
+// MARK: - Runtime configuration
+
+API_BASE_URL = https:/$()/api.example.com
+LOG_LEVEL = error
+
+// MARK: - Client keys
+
+#include? "ClientKeys.xcconfig"
