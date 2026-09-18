@@ -1,0 +1,39 @@
+{
+  "env": {
+    "XCODEBUILDMCP_DYNAMIC_TOOLS": "true"
+  },
+  "permissions": {
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/check-tools.sh",
+            "args": [],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/swift-quality.sh",
+            "args": [],
+            "timeout": 60,
+            "statusMessage": "Swift 검사 중"
+          }
+        ]
+      }
+    ]
+  }
+}

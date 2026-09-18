@@ -1,0 +1,245 @@
+# SwiftLint 0.57+ 기준. 낮은 버전이면 `swiftlint rules`로 규칙 존재 여부 확인.
+# 훅은 error만 차단 → 반드시 막을 것만 error, 나머지는 전부 warning.
+# 훅 커맨드에 --force-exclude 필수. --strict는 금지(warning이 전부 error가 됨).
+
+excluded:
+  - .build
+  - .swiftpm
+  - DerivedData
+  - Pods
+  - Carthage
+  - fastlane
+  - "**/*.generated.swift"
+  - "**/*+CoreDataProperties.swift"   # Core Data 자동 생성 파일
+  - "**/Derived"                       # Tuist 생성물(번들·에셋 접근자, Info.plist)
+  - Tuist/.build                       # tuist install 로 받은 외부 패키지
+
+disabled_rules:
+  - todo                                  # TODO/FIXME 주석을 경고로 띄우지 않음
+  - multiple_closures_with_trailing_closure  # SwiftUI에서 오탐만 쌓임
+  # 아래는 swiftformat 이 담당한다. 두 도구의 기준이 달라 서로의 결과를 위반으로 잡는다.
+  # (swiftformat 은 여러 줄 컬렉션에 trailing comma 를 넣고, nonisolated 를 접근 수준 뒤에 둔다.)
+  # 수식어 순서는 swiftformat 의 modifierOrder 규칙이 통일한다.
+  - trailing_comma
+  - modifier_order
+
+opt_in_rules:
+  # --- 안전성 / 실제 버그 ---
+  - force_unwrapping                     # `!` 강제 언래핑 금지
+  - implicitly_unwrapped_optional        # `var x: String!` 선언 금지
+  - unowned_variable_capture             # `[unowned self]` 캡처 금지 (weak 사용)
+  - overridden_super_call                # override 시 super 호출 누락 감지
+  - discarded_notification_center_observer  # addObserver 반환 토큰 버리기 금지(누수)
+  - identical_operands                   # `a == a` 처럼 양쪽이 같은 비교
+  - unhandled_throwing_task              # Task { try ... } 에서 에러가 삼켜지는 패턴
+  - untyped_error_in_catch               # `catch let error`는 암묵 error로 충분
+  - return_value_from_void_function      # Void 함수에서 `return 표현식` 금지
+  - fatal_error_message                  # fatalError()에 사유 메시지 강제
+  - unavailable_function                 # 미구현 함수는 @available(*, unavailable) 표시
+
+  # --- 동시성 / 최신 문법 ---
+  - shorthand_optional_binding           # `if let x = x` → `if let x`
+  - optional_enum_case_matching          # `case .some(.a)` → `case .a`
+  - redundant_self                       # 캡처 불필요한 곳의 `self.` 제거 (구 redundant_self_in_closure)
+  - weak_delegate                        # delegate 프로퍼티는 weak (아래 설정의 전제. opt-in 규칙이다)
+  - self_binding                         # `guard let self = self` → `guard let self`
+  - static_operator                      # 연산자는 전역이 아니라 타입의 static으로
+  - non_overridable_class_declaration    # 오버라이드 안 할 `class func`는 static으로
+
+  # --- 컬렉션 / 성능 ---
+  - empty_count                          # `count == 0` → `isEmpty`
+  - empty_string                         # `== ""` → `isEmpty`
+  - first_where                          # `filter { }.first` → `first(where:)`
+  - last_where                           # `filter { }.last` → `last(where:)`
+  - contains_over_first_not_nil          # `first(where:) != nil` → `contains(where:)`
+  - contains_over_filter_count           # `filter { }.count > 0` → `contains(where:)`
+  - contains_over_filter_is_empty        # `filter { }.isEmpty` → `!contains(where:)`
+  - contains_over_range_nil_comparison   # `range(of:) != nil` → `contains`
+  - sorted_first_last                    # `sorted().first` → `min()`
+  - flatmap_over_map_reduce              # `map { }.reduce([], +)` → `flatMap`
+  - reduce_into                          # 컬렉션을 만드는 reduce는 `reduce(into:)`
+  - joined_default_parameter             # `joined(separator: "")` 기본값 생략
+  - array_init                           # `seq.map { $0 }` → `Array(seq)`
+  - prefer_key_path                      # `map { $0.name }` → `map(\.name)`
+
+  # --- 가독성 ---
+  - explicit_init                        # 불필요한 `.init` 호출 제거 (`Foo.init(x)` → `Foo(x)`)
+  - toggle_bool                          # `flag = !flag` → `flag.toggle()`
+  - redundant_nil_coalescing             # `optional ?? nil`
+  - redundant_type_annotation            # `let x: Int = 1` 에서 타입 생략
+  - prefer_self_type_over_type_of_self   # `type(of: self)` → `Self`
+  - prefer_zero_over_explicit_init       # `CGPoint(x: 0, y: 0)` → `.zero`
+  - convenience_type                     # 상수 전용 타입은 enum으로(인스턴스화 차단)
+  - operator_usage_whitespace            # `1+2` → `1 + 2`
+  - closure_spacing                      # `{x}` → `{ x }`
+  - collection_alignment                 # 여러 줄 배열/딕셔너리 리터럴 세로 정렬
+  - vertical_whitespace_closing_braces   # 닫는 중괄호 바로 앞 빈 줄 금지
+  - vertical_whitespace_opening_braces   # 여는 중괄호 바로 뒤 빈 줄 금지
+  - unneeded_parentheses_in_closure_argument  # `{ (x) in` → `{ x in`
+  - superfluous_else                     # if가 return으로 끝나면 else 불필요
+  - period_spacing                       # 주석의 마침표 뒤 공백
+  - legacy_multiple                      # `x % 2 == 0` → `x.isMultiple(of: 2)`
+  - multiline_parameters                 # 파라미터는 한 줄에 전부 또는 한 줄에 하나씩
+  - no_magic_numbers                     # 이름 없는 숫자 리터럴
+  - accessibility_label_for_image        # SwiftUI Image에 접근성 레이블
+
+  # --- 테스트 ---
+  - test_case_accessibility              # XCTestCase의 비테스트 멤버는 private
+  - single_test_class                    # 파일당 테스트 클래스 하나
+  - balanced_xctest_lifecycle            # setUp/tearDown 짝 맞추기
+  - xct_specific_matcher                 # `XCTAssertEqual(x, true)` → `XCTAssertTrue(x)`
+
+# =========================
+# 차단 대상 (error)
+# =========================
+force_unwrapping:
+  severity: error
+force_cast:
+  severity: error                        # `as!` 금지
+force_try:
+  severity: error                        # `try!` 금지
+implicitly_unwrapped_optional:
+  severity: error
+  mode: all_except_iboutlets             # @IBOutlet의 `!`만 예외 허용
+unowned_variable_capture:
+  severity: error                        # 크래시 직결
+overridden_super_call:
+  severity: error                        # super 누락은 조용한 버그
+discarded_notification_center_observer:
+  severity: error                        # 옵저버 누수
+identical_operands:
+  severity: error                        # 오타성 버그
+unhandled_throwing_task:
+  severity: error                        # Task 안에서 에러가 사라짐
+blanket_disable_command:
+  severity: error                        # `disable all` 같은 광범위 억제 차단
+superfluous_disable_command:
+  severity: error                        # 위반이 없는데 남아있는 disable 주석
+
+custom_rules:
+  hardcoded_url:
+    name: "하드코딩된 URL"
+    regex: 'URL\(string:\s*"https?://'
+    message: "URL 리터럴을 코드에 두지 마세요. 설정이나 엔드포인트 상수로 옮기세요."
+    severity: error
+    excluded_match_kinds:                # 주석 안의 코드 예시는 제외(토큰 종류 기준)
+      - comment
+      - doccomment
+    excluded:
+      - '.*Tests\.swift'
+      - '.*/Tests/.*'
+      - '.*Preview.*\.swift'             # #Preview의 더미 이미지 URL 허용
+      - '.*Mock.*\.swift'
+
+  hardcoded_secret:
+    name: "하드코딩된 시크릿"
+    regex: '(?i)\b(api[_-]?key|client[_-]?secret|secret[_-]?key|access[_-]?token|private[_-]?key)\b\s*[:=]\s*"[^"]{8,}"'
+    message: "키/토큰을 소스에 두지 마세요. xcconfig나 Keychain으로 옮기세요."
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment
+    excluded:
+      - '.*Tests\.swift'
+      - '.*/Tests/.*'
+
+  avoid_print:
+    name: "print 사용"
+    regex: '\bprint\('
+    message: "print 대신 Logger(OSLog)를 사용하세요. 릴리스 빌드에서도 실행됩니다."
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - string                           # 문자열 안의 "print(" 는 제외
+    excluded:
+      - '.*Tests\.swift'
+      - '.*/Tests/.*'
+      - '.*Preview.*\.swift'
+
+  unchecked_sendable:
+    name: "@unchecked Sendable"
+    regex: '@unchecked\s+Sendable'
+    message: "@unchecked Sendable 대신 실제 격리를 설계하세요."
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment
+
+  swiftlint_disable:
+    name: "린트 규칙 억제"
+    regex: 'swiftlint:disable(?!:previous|:next|:this)'  # 한 줄 단위 억제만 허용
+    message: "파일 단위 규칙 억제는 금지입니다. 코드를 고치세요."
+    severity: error
+    excluded_match_kinds:
+      - string
+
+# =========================
+# 경고 (차단하지 않음)
+# =========================
+no_magic_numbers:
+  severity: warning
+
+weak_delegate:                           # delegate 프로퍼티는 weak (순환 참조)
+  severity: warning
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+  ignores_interpolated_strings: true     # 문자열 보간은 줄바꿈이 어려움
+  ignores_function_declarations: true    # 긴 시그니처는 허용
+
+type_body_length:
+  warning: 250
+  error: 600                             # 기본 error(350)가 살아나 커밋을 막는 걸 방지
+
+file_length:
+  warning: 400
+  error: 1200
+  ignore_comment_only_lines: true
+
+cyclomatic_complexity:                   # 분기 복잡도
+  warning: 12
+  error: 30
+  ignores_case_statements: true          # switch의 case 수는 복잡도로 세지 않음
+
+function_body_length:
+  warning: 50
+  error: 200
+
+function_parameter_count:
+  warning: 6
+  error: 12
+
+large_tuple:                             # 튜플 원소가 많으면 구조체로
+  warning: 3
+  error: 6
+
+nesting:
+  type_level: 2                          # 기본값 1은 중첩 타입 설계를 막음
+
+identifier_name:                         # 변수/함수/프로퍼티 이름
+  min_length:
+    warning: 2
+    error: 0                             # 이름 길이로는 커밋을 막지 않음
+  max_length:
+    warning: 50
+    error: 120
+  allowed_symbols: ["_"]                 # `_privateBacking` 같은 이름 허용
+  excluded: [id, x, y, z, to, at, on, up, db, ok, vc, i, j, k, dx, dy]
+
+type_name:                               # 타입/프로토콜 이름
+  min_length:
+    warning: 3
+    error: 0
+  max_length:
+    warning: 45
+    error: 120
+
+trailing_whitespace:
+  ignores_empty_lines: true              # 빈 줄의 들여쓰기 공백은 허용
+
+vertical_whitespace:
+  max_empty_lines: 1                     # 연속 빈 줄 1개까지

@@ -1,0 +1,12 @@
+{
+  "swift": {
+    "command": "sourcekit-lsp",
+    "args": [],
+    "extensionToLanguage": {
+      ".swift": "swift",
+      ".m": "objective-c",
+      ".h": "objective-c"
+    },
+    "transport": "stdio"
+  }
+}

@@ -1,0 +1,66 @@
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+### Xcode ###
+xcuserdata/
+DerivedData/
+build/
+*.moved-aside
+*.xcscmblueprint
+*.xccheckout
+*.xcresult
+
+### 스냅샷 테스트 ###
+# 기준 이미지(__Snapshots__/)는 커밋한다. 실패 시 생기는 비교 이미지만 제외한다.
+__Failures__/
+
+### 생성물 ###
+# Tuist 가 매번 다시 만든다. 커밋하면 머지 충돌만 생긴다.
+*.xcodeproj
+*.xcworkspace
+Derived/
+graph.dot
+graph.png
+graph.svg
+graph.json
+
+### SwiftPM ###
+# Tuist/Package.resolved 는 반드시 커밋한다.
+# 빠지면 팀원마다 다른 패키지 버전을 받는다. 여기에 넣지 말 것.
+.build/
+Tuist/.build/
+.swiftpm/
+
+### 로컬 개발 도구 ###
+# 머신마다 다른 경로가 들어가는 파일들
+.claude/settings.local.json
+.claude/sim.local
+buildServer.json
+.compile
+
+### 클라이언트 키 ###
+# 보안 목적이 아니라 환경 분리 + 서버 시크릿 실수 방어용이다.
+# 이 파일의 값은 어차피 앱 번들에 평문으로 실린다.
+Configurations/ClientKeys.xcconfig
+
+### 서명 자격증명 ###
+# 이쪽은 진짜 비밀이다. 실수로 루트에 떨어뜨렸을 때의 방어선.
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision

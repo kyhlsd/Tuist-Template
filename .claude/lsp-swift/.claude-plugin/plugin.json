@@ -1,0 +1,5 @@
+{
+  "name": "lsp-swift",
+  "version": "1.0.0",
+  "description": "SourceKit-LSP for Swift and Objective-C in this project"
+}

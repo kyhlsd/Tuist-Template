@@ -1,0 +1,7 @@
+# 이 프로젝트 설정이 만드는 머신 로컬 파일
+.claude/settings.local.json
+.claude/sim.local
+
+# xcode-build-server 산출물 (로컬 빌드 경로 포함)
+buildServer.json
+.compile

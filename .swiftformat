@@ -1,0 +1,9 @@
+# SwiftFormat 설정. 버전은 mise.toml 에 고정되어 있다.
+#
+# 훅(.claude/hooks/swift-quality.sh)이 `swiftformat --lint` 로 파일 전체를 검사하므로,
+# 저장소 전체가 항상 이 설정으로 포맷된 상태여야 한 줄 수정이 파일 전체 재포맷으로
+# 번지지 않는다. 규칙을 바꾸면 `swiftformat .` 을 한 번 돌려 별도 커밋으로 남긴다.
+
+--swiftversion 6.0
+
+--exclude **/Derived,Tuist/.build,**/*.generated.swift
