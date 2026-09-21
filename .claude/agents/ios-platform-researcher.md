@@ -11,9 +11,13 @@ color: purple
 
 ## 먼저 할 것 (이걸 건너뛰면 나머지가 무의미합니다)
 
-1. 최소 지원 버전을 확인합니다 — `Package.swift`의 `platforms`,
-   `*.xcodeproj`의 `IPHONEOS_DEPLOYMENT_TARGET`, 또는 `CLAUDE.md`
-2. 이미 들어있는 의존성을 확인합니다 — `Package.swift`, `Package.resolved`, `Podfile`
+1. 최소 지원 버전을 확인합니다. 이 저장소는 Tuist 프로젝트라
+   `Tuist/ProjectDescriptionHelpers/AppConstants.swift`의 `deploymentTargets`가 단일 출처입니다.
+   `.xcodeproj`/`.xcworkspace`는 생성물이라 읽지 마세요(gitignore 대상이며 클론 직후엔 없습니다).
+   Tuist가 아닌 프로젝트라면 `Package.swift`의 `platforms` 또는 `IPHONEOS_DEPLOYMENT_TARGET`입니다.
+2. 이미 들어있는 의존성을 확인합니다 — 외부 SPM 패키지는 `Tuist/Package.swift`와
+   `Tuist/Package.resolved`에 있습니다(루트의 `Package.swift`가 아닙니다).
+   모듈 간 의존성은 `Tuist/ProjectDescriptionHelpers/`와 각 모듈의 `Project.swift`에 있습니다.
 
 이 두 가지가 모든 답의 전제입니다. 확인 못 했으면 보고서 첫 줄에 그렇게 적으세요.
 

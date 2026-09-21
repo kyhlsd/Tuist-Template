@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "XcodeBuildMCP": {
-      "command": "npx",
-      "args": ["-y", "xcodebuildmcp@2.7.0", "mcp"]
-    }
-  }
-}

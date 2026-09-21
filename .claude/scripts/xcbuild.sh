@@ -9,7 +9,8 @@
 #   ./.claude/scripts/xcbuild.sh build
 #   ./.claude/scripts/xcbuild.sh test
 #   ./.claude/scripts/xcbuild.sh test -only-testing:AppTests/PaymentTests
-#   ./.claude/scripts/xcbuild.sh destination      # 현재 고정된 기기 확인
+#   ./.claude/scripts/xcbuild.sh destination      # 현재 고정된 기기 확인 (사람이 읽는 형식)
+#   ./.claude/scripts/xcbuild.sh udid             # UDID만 출력 (XcodeBuildMCP 등에 그대로 전달)
 #   ./.claude/scripts/xcbuild.sh reset            # 캐시 삭제 후 재선택
 set -euo pipefail
 
@@ -68,10 +69,16 @@ run_xcodebuild() {
   local action="$1"; shift
   local udid name
   IFS=$'\t' read -r udid name <<< "$(resolve)"
+  # PROJECT_FLAGS 의 워크스페이스/프로젝트 경로는 루트 기준 상대 경로다.
+  # 하위 디렉터리에서 호출해도 같은 결과가 나오도록 여기서 루트로 옮긴다.
+  cd "$root"
   if command -v xcbeautify >/dev/null 2>&1; then
-    set -o pipefail
+    # --disable-logging: 매 실행마다 찍히는 5줄짜리 버전 배너를 없앤다.
+    # --disable-colored-output: ANSI 이스케이프는 터미널 밖(= 모델 컨텍스트)에서 순수 낭비다.
+    # 성공 빌드 출력이 90바이트에서 16바이트로 줄어든다. 실패 시에는 에러 줄마다 붙던 색상 코드가 빠진다.
     xcodebuild "$action" -scheme "$SCHEME" "${PROJECT_FLAGS[@]+"${PROJECT_FLAGS[@]}"}" \
-      -destination "id=$udid" "$@" 2>&1 | xcbeautify --quiet
+      -destination "id=$udid" "$@" 2>&1 \
+      | xcbeautify --quiet --disable-logging --disable-colored-output
   else
     xcodebuild "$action" -scheme "$SCHEME" "${PROJECT_FLAGS[@]+"${PROJECT_FLAGS[@]}"}" \
       -destination "id=$udid" "$@"
@@ -82,6 +89,7 @@ case "${1:-}" in
   build) shift; run_xcodebuild build "$@" ;;
   test)  shift; run_xcodebuild test  "$@" ;;
   destination) IFS=$'\t' read -r udid name <<< "$(resolve)"; printf '%s  (%s)\n' "$name" "$udid" ;;
+  udid) IFS=$'\t' read -r udid name <<< "$(resolve)"; printf '%s\n' "$udid" ;;
   reset) rm -f "$cache"; echo "시뮬레이터 캐시를 지웠습니다. 다음 실행에서 다시 선택합니다." ;;
-  *) die "사용법: xcbuild.sh {build|test|destination|reset} [xcodebuild 추가 인자]" ;;
+  *) die "사용법: xcbuild.sh {build|test|destination|udid|reset} [xcodebuild 추가 인자]" ;;
 esac

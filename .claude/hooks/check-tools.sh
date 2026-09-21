@@ -69,6 +69,26 @@ if [ -f "$xcb" ] && grep -q 'SCHEME="<Scheme>"' "$xcb"; then
   add "- \`.claude/scripts/xcbuild.sh\`의 SCHEME이 비어 있습니다 → 빌드·테스트 명령이 동작하지 않습니다."
 fi
 
+# buildServer.json 이 "있다"는 것만으로는 부족합니다. 그 안의 build_root 는
+# DerivedData 경로(프로젝트명-해시)인데, Tuist 가 워크스페이스를 다시 만들면 해시가 바뀝니다.
+# 그러면 파일은 그대로 있고 가리키는 곳만 낡아, LSP 가 붙은 채로 심볼 조회만 조용히 실패합니다.
+# (정의 이동·참조 찾기가 빈손으로 돌아오고, import 가 "No such module" 로 뜹니다.)
+if [ -f "$root/buildServer.json" ] && command -v jq >/dev/null 2>&1; then
+  bs_root=$(jq -r '.build_root // empty' "$root/buildServer.json" 2>/dev/null)
+  if [ -n "$bs_root" ]; then
+    if [ ! -d "$bs_root" ]; then
+      add "- buildServer.json 이 가리키는 DerivedData 가 없습니다 → LSP 심볼 조회가 조용히 실패합니다. \`xcode-build-server config\` 를 다시 실행하세요."
+    else
+      # 같은 프로젝트의 DerivedData 가 여럿이고 그중 최신이 아니면 해시가 바뀐 것이다.
+      prefix=${bs_root%-*}
+      newest=$(ls -dt "$prefix"-* 2>/dev/null | head -1)
+      if [ -n "$newest" ] && [ "$newest" != "$bs_root" ]; then
+        add "- buildServer.json 이 오래된 DerivedData 를 가리킵니다(최신: $(basename "$newest")) → LSP 심볼 조회가 조용히 실패합니다. \`xcode-build-server config\` 를 다시 실행하세요."
+      fi
+    fi
+  fi
+fi
+
 [ -n "$missing" ] || exit 0
 
 cat <<MSG

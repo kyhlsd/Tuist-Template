@@ -16,13 +16,17 @@ tuist generate               # TuistApp.xcworkspace 생성 후 Xcode 로 연다
 `*.xcodeproj`, `*.xcworkspace`, `Derived/` 는 생성물이라 커밋하지 않는다.
 매니페스트(`Project.swift` 등)를 바꾸면 `tuist generate` 를 다시 실행한다.
 
-Claude Code 에서 LSP(정의 이동, 심볼 조회)를 쓰려면 머신마다 한 번 build server 를 설정한다.
+LSP(정의 이동, 심볼 조회)를 쓰려면 머신마다 한 번 build server 를 설정한다.
 `buildServer.json` 은 로컬 경로가 들어가 커밋하지 않는다.
 
 ```bash
 brew install xcode-build-server
 xcode-build-server config -workspace TuistApp.xcworkspace -scheme TuistApp-Workspace
 ```
+
+**`tuist generate` 를 다시 돌린 뒤에는 이 명령도 다시 돌린다.** DerivedData 경로에
+워크스페이스 해시가 들어가서, 재생성하면 새 디렉터리가 만들어지고 `buildServer.json` 은
+옛날 것을 계속 가리킨다. 파일은 멀쩡히 있는데 심볼 조회만 조용히 실패하는 상태가 된다.
 
 ## 구조
 
@@ -122,14 +126,16 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 
 ## 문제 해결
 
-**Claude Code 에서 XcodeBuildMCP 가 연결되지 않는다** (`XcodeBuildMCP (CONNECTION_CLOSED)`)
+**`tuist generate` 가 실패한다** — `enforceExplicitDependencies` 가 켜져 있다.
+import 하는 모듈이 해당 타깃의 `*Dependencies` 에 빠져 있으면 생성 단계에서 막는다.
+에러 메시지가 어느 타깃의 어느 의존성인지 알려준다.
 
-`.mcp.json` 은 `npx -y xcodebuildmcp@<버전> mcp` 로 서버를 띄운다. 예전에 `sudo npm` 을 실행한 적이 있으면
-`~/.npm` 캐시에 root 소유 파일이 남아 npx 가 패키지를 받지 못한다(`EACCES`). 확인과 해결:
+**Xcode 에서 정의 이동이 안 된다** — `buildServer.json` 이 없거나 낡았다.
+위 "처음 실행" 의 `xcode-build-server config` 를 다시 실행한 뒤 한 번 빌드한다.
 
-```bash
-find ~/.npm ! -user "$(whoami)" | head    # 출력이 있으면 이 문제다
-sudo chown -R $(id -u):$(id -g) ~/.npm
-```
+**앱은 빌드되는데 데모 타깃이 깨져 있다** — `TuistApp` 스킴은 앱과 그 의존성만 빌드해서
+`HomeDemo` · `DesignSystemDemo` 의 컴파일 에러를 놓친다. `TuistApp-Workspace` 는 데모까지
+포함하므로, 커밋 전 검증은 이 스킴으로 한다(`.claude/scripts/xcbuild.sh` 가 쓰는 스킴이다).
 
-그다음 Claude Code 세션을 새로 시작한다. 설정 자체가 의심되면 `.mcp.json` 의 명령을 터미널에서 직접 실행해 에러를 본다.
+Claude Code 쪽 문제(훅이 안 돈다, LSP 가 붙지 않는다 등)는
+[.claude/README.md](.claude/README.md) 의 "문제 해결" 을 본다.

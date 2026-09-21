@@ -18,9 +18,15 @@ effort: high
 3. 파일이 많으면 **한 번에 전체 diff를 뜨지 말고** 변경량이 큰 것부터 파일 단위로
    `git diff <base> -- <파일>`을 돌려 검토합니다
 4. `docs/plans/`의 최근 계획 문서를 읽고 계획에 없는 변경이 섞였는지 확인합니다
-5. `.claude/rules/swift.md` 위반이 남았는지 확인합니다
-   (강제 언래핑, 하드코딩, `@unchecked Sendable`, 삼킨 에러)
-6. 추가된 분기 중 테스트가 없는 것을 찾습니다
+5. `swiftlint lint --quiet | grep ': error:'`를 한 번 돌립니다.
+   강제 언래핑·`as!`·`try!`·IUO·하드코딩 URL/시크릿·`@unchecked Sendable`·`swiftlint:disable`은
+   전부 `error` 심각도라 여기서 기계적으로 잡힙니다. 눈으로 다시 대조하지 마세요.
+   편집 훅은 Claude의 Edit/Write만 검사하므로, 사람이 직접 고쳤거나 Bash로 바뀐 파일은
+   이 단계에서 처음 걸립니다. 출력이 없으면 "SwiftLint error 없음"으로 적고 넘어갑니다.
+   warning은 보지 않습니다(훅 기준과 같게 유지).
+6. 린터가 못 잡는 규약만 사람 눈으로 봅니다 — 삼킨 `catch`, `@MainActor` 격리 판단,
+   생성자 주입 대신 들어온 하드 의존, 새로 생긴 `.shared`
+7. 추가된 분기 중 테스트가 없는 것을 찾습니다
 
 diff 밖의 파일은 문맥 이해에 필요한 만큼만 읽습니다. 전체 코드베이스를 리뷰하지 않습니다.
 코드를 수정하지 말고 지적과 수정안만 돌려줍니다.

@@ -4,6 +4,8 @@ paths:
   - "**/*Tests.swift"
   - "**/*Test.swift"
   - "**/*Spec.swift"
+  - "**/Tests/**/*.swift"
+  - "**/Testing/Sources/**/*.swift"   # 모듈이 공개하는 테스트 더블(Stub*, Spy*, *+Fixtures)
 ---
 
 # 테스트 규약
