@@ -3,17 +3,19 @@
 //  TuistApp
 //
 
-import HomeInterface
+import Navigation
 import SwiftUI
 
 extension View {
-    /// 앱의 모든 Route → 화면 매핑.
+    /// 앱의 모든 Route → 화면 매핑. 스택 루트에 한 번만 붙인다.
     ///
-    /// 피처를 추가하면 그 피처 Interface 의 Route 타입으로 한 줄을 더한다.
-    /// 등록되지 않은 Route 를 push 하면 SwiftUI 는 아무 화면도 띄우지 않고 경고만 남긴다.
-    func appDestinations(_ container: AppContainer) -> some View {
-        navigationDestination(for: HomeRoute.self) { route in
-            container.makeView(for: route)
+    /// 스택 원소는 모두 `AppRoute` 이므로 등록은 하나다. 피처를 추가하면
+    /// `AppContainer.makeView(for:router:)` 의 분기를 늘린다.
+    ///
+    /// - Parameter router: 이 스택이 속한 문맥의 `Routing`. push 된 화면도 같은 문맥에서 이동한다.
+    func appDestinations(_ container: AppContainer, router: any Routing) -> some View {
+        navigationDestination(for: AppRoute.self) { route in
+            container.makeView(for: route, router: router)
         }
     }
 }
