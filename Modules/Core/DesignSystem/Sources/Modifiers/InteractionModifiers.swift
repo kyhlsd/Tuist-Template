@@ -121,6 +121,7 @@ public struct AppIconButton: View {
         accessibilityLabel: String,
         size: KeyPath<IconSizeTokens, CGFloat> = \.md,
         tint: KeyPath<ColorTokens, Color> = \.textPrimary,
+        background: KeyPath<ColorTokens, Color>? = nil,
         haptic: AppHaptic? = .light,
         action: @escaping () -> Void
     ) {
@@ -128,6 +129,7 @@ public struct AppIconButton: View {
         self.accessibilityLabel = accessibilityLabel
         self.size = size
         self.tint = tint
+        self.background = background
         self.haptic = haptic
         self.action = action
     }
@@ -137,6 +139,8 @@ public struct AppIconButton: View {
     public let accessibilityLabel: String
     public var size: KeyPath<IconSizeTokens, CGFloat> = \.md
     public var tint: KeyPath<ColorTokens, Color> = \.textPrimary
+    /// 터치 영역 크기의 원형 배경. 시트 닫기 버튼처럼 버튼임을 드러내야 할 때 쓴다. `nil`이면 배경 없음.
+    public var background: KeyPath<ColorTokens, Color>?
     public var haptic: AppHaptic? = .light
     public let action: () -> Void
 
@@ -151,6 +155,11 @@ public struct AppIconButton: View {
                 .appIcon(size, weight: .semibold)
                 .foregroundStyle(theme.colors[keyPath: tint])
                 .appMinimumHitTarget()
+                .background {
+                    if let background {
+                        Circle().fill(theme.colors[keyPath: background])
+                    }
+                }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)

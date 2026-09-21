@@ -184,11 +184,11 @@ public struct AppContrastInspector: View {
                             Text(pair.name)
                                 .font(.footnote)
                             Spacer()
-                            Text(String(format: "%.2f", report.ratio))
+                            Text(report.formattedRatio)
                                 .font(.footnote.monospacedDigit())
-                                .foregroundStyle(report.passes ? Color.green : Color.red)
-                            Image(report.passes ? .success : .error)
-                                .foregroundStyle(report.passes ? Color.green : Color.red)
+                                .foregroundStyle(report.verdict.previewColor)
+                            Image(report.verdict.icon)
+                                .foregroundStyle(report.verdict.previewColor)
                         }
                         // 통과 여부가 색과 아이콘에만 있으므로 보고서 문장을 통째로 읽힌다.
                         .accessibilityElement(children: .ignore)
@@ -219,4 +219,26 @@ public struct AppContrastInspector: View {
 
 #Preview("Contrast") {
     AppContrastInspector()
+}
+
+// MARK: - 대비 판정 표시
+
+extension ColorContrast.Report.Verdict {
+    /// 판정 불가는 미달과 구분되도록 별도 아이콘을 쓴다.
+    var icon: AppIcon {
+        switch self {
+        case .pass: .success
+        case .fail: .error
+        case .indeterminate: .warning
+        }
+    }
+
+    /// 프리뷰 인스펙터는 테마 밖에서도 읽히도록 시스템 색을 쓴다.
+    var previewColor: Color {
+        switch self {
+        case .pass: .green
+        case .fail: .red
+        case .indeterminate: .secondary
+        }
+    }
 }

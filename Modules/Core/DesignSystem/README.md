@@ -172,6 +172,18 @@ typography.provider = CustomFontProvider { weight in
 
 ---
 
+## 마이그레이션 메모
+
+다른 브랜치를 머지하다 아래 심볼에서 컴파일 오류가 나면 이렇게 바꾼다.
+
+| 이전 | 이후 |
+|---|---|
+| `ColorContrast.ratio(foreground:background:in:)` (`Double`) | `Double?`. 반투명 배경이면 `nil` |
+| `ColorContrast.relativeLuminance(of:in:)` | 비공개. 대비 판정은 `ratio`, `meets`, `report`로 |
+| `ColorContrast.Report.ratio` (`Double`) | `Double?`. 반투명 배경이면 `nil`. 표시에는 `formattedRatio` |
+
+---
+
 ## 테스트
 
 ```

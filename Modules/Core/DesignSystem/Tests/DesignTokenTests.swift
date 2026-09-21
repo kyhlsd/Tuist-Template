@@ -50,20 +50,188 @@ struct ColorContrastTests {
         #expect(abs(identical - 1.0) < 0.01)
     }
 
+    /// `ratio(_:_:in:)`는 순서에 무관하다는 계약을 문서로 약속한다.
     @Test("대비율은 순서에 무관하다")
     func ratioIsSymmetric() {
-        let forward = ColorContrast.ratio(
-            theme.colors.textPrimary,
-            theme.colors.background,
+        let forward = ColorContrast.ratio(theme.colors.textPrimary, theme.colors.background, in: .light)
+        let backward = ColorContrast.ratio(theme.colors.background, theme.colors.textPrimary, in: .light)
+
+        #expect(abs(forward - backward) < 0.0001)
+    }
+
+    /// AA 본문 기준(4.5:1) 바로 위에 있는 조합으로 감마 해제·가중치 회귀를 잡는다.
+    @Test("대비율 계산이 WCAG 경계값과 일치한다")
+    func ratioMatchesWCAGBoundary() {
+        // #767676 / #FFFFFF 은 흰 배경에서 AA를 통과하는 가장 옅은 회색으로 알려진 조합이다(약 4.54:1).
+        let ratio = ColorContrast.ratio(Color(rgb: 0x767676), .white, in: .light)
+
+        #expect(abs(ratio - 4.54) < 0.01)
+    }
+
+    /// 알파를 버리면 반투명 검정도 21:1로 나와 검사를 통과해 버린다.
+    @Test
+    func ratio_반투명전경_배경과합성한색으로계산() throws {
+        let translucent = try #require(ColorContrast.ratio(
+            foreground: .black.opacity(0.5),
+            background: .white,
             in: .light
-        )
-        let backward = ColorContrast.ratio(
-            theme.colors.background,
-            theme.colors.textPrimary,
+        ))
+        let composited = ColorContrast.ratio(Color(.sRGB, white: 0.5), .white, in: .light)
+
+        #expect(abs(translucent - composited) < 0.01)
+    }
+
+    @Test
+    func ratio_불투명전경_순서무관계산과일치() throws {
+        let layered = try #require(ColorContrast.ratio(
+            foreground: Color(rgb: 0x767676),
+            background: .white,
+            in: .light
+        ))
+        let plain = ColorContrast.ratio(Color(rgb: 0x767676), .white, in: .light)
+
+        #expect(abs(layered - plain) < 0.0001)
+    }
+
+    /// 판정 API가 알파를 버리는 `ratio(_:_:in:)`로 되돌아가면 반투명 검정이 21:1로 통과해 버린다.
+    @Test
+    func meets_반투명전경_합성후기준미달() {
+        let passes = ColorContrast.meets(
+            .aa,
+            foreground: .black.opacity(0.2),
+            background: .white,
             in: .light
         )
 
-        #expect(abs(forward - backward) < 0.0001)
+        #expect(!passes)
+    }
+
+    @Test
+    func meetsNonTextRequirement_반투명전경_합성후기준미달() {
+        let passes = ColorContrast.meetsNonTextRequirement(
+            foreground: .black.opacity(0.2),
+            background: .white,
+            in: .light
+        )
+
+        #expect(!passes)
+    }
+
+    @Test
+    func report_반투명전경_합성한대비율보고() throws {
+        let report = ColorContrast.report(
+            name: "반투명",
+            foreground: .black.opacity(0.5),
+            background: .white,
+            in: .light
+        )
+        let composited = ColorContrast.ratio(Color(.sRGB, white: 0.5), .white, in: .light)
+
+        let ratio = try #require(report.ratio)
+        #expect(abs(ratio - composited) < 0.01)
+    }
+
+    /// 반투명 배경은 아래에 깔리는 색에 따라 대비가 달라지므로 통과로 보고하면 안 된다.
+    /// 그레이스케일 색 공간의 반투명 색도 알파가 전달돼 합성된 색으로 판정해야 한다.
+    @Test
+    func meets_그레이스케일반투명전경_합성후기준미달() {
+        let passes = ColorContrast.meets(
+            .aa,
+            foreground: Color(uiColor: UIColor(white: 0, alpha: 0.2)),
+            background: .white,
+            in: .light
+        )
+
+        #expect(!passes)
+    }
+
+    /// 반투명 배경은 오류가 아니라 정상 입력이므로 멈추지 않고 `nil`을 돌려준다.
+    @Test
+    func ratio_반투명배경_nil() {
+        let ratio = ColorContrast.ratio(foreground: .black, background: .white.opacity(0.5), in: .light)
+
+        #expect(ratio == nil)
+    }
+
+    /// 판정 불가를 미달과 구분해 표시한다.
+    @Test
+    func verdict_반투명배경_판정불가() {
+        let report = ColorContrast.report(
+            name: "반투명 배경",
+            foreground: .black,
+            background: .white.opacity(0.5),
+            in: .light
+        )
+
+        #expect(report.verdict == .indeterminate)
+    }
+
+    @Test
+    func verdict_기준미달_미달() {
+        let report = ColorContrast.report(name: "미달", foreground: .gray, background: .white, in: .light, threshold: 7)
+
+        #expect(report.verdict == .fail)
+    }
+
+    @Test
+    func report_반투명배경_판정불가() {
+        let report = ColorContrast.report(
+            name: "반투명 배경",
+            foreground: .black,
+            background: .white.opacity(0.5),
+            in: .light
+        )
+
+        #expect(report.ratio == nil)
+        #expect(!report.passes)
+    }
+
+    @Test
+    func report_반투명배경_표시값판정불가() {
+        let report = ColorContrast.report(
+            name: "반투명 배경",
+            foreground: .black,
+            background: .white.opacity(0.5),
+            in: .light
+        )
+
+        #expect(report.formattedRatio == "—")
+        #expect(report.description.contains("판정 불가"))
+    }
+
+    @Test
+    func report_불투명배경_대비율표시() {
+        let report = ColorContrast.report(
+            name: "경계값",
+            foreground: Color(rgb: 0x767676),
+            background: .white,
+            in: .light
+        )
+
+        #expect(report.formattedRatio == "4.54")
+    }
+
+    @Test
+    func meetsNonTextRequirement_반투명배경_미달처리() {
+        let passes = ColorContrast.meetsNonTextRequirement(
+            foreground: .black,
+            background: .white.opacity(0.5),
+            in: .light
+        )
+
+        #expect(!passes)
+    }
+
+    @Test
+    func meets_반투명배경_미달처리() {
+        let passes = ColorContrast.meets(
+            .aa,
+            foreground: .black,
+            background: .white.opacity(0.5),
+            in: .light
+        )
+
+        #expect(!passes)
     }
 
     @Test("라이트와 다크가 서로 다른 색으로 해석된다")

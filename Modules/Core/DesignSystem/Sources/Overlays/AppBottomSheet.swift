@@ -42,18 +42,16 @@ public struct AppSheetHeader: View {
             .accessibilityAddTraits(.isHeader)
 
             if let onClose {
-                Button(action: onClose) {
-                    Image(.close)
-                        .appIcon(\.sm, weight: .semibold)
-                        .foregroundStyle(theme.colors.textSecondary)
-                        .frame(
-                            width: theme.metrics.minimumHitTarget,
-                            height: theme.metrics.minimumHitTarget
-                        )
-                        .background(theme.colors.surfaceMuted, in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(DesignSystemStrings.close)
+                AppIconButton(
+                    icon: .close,
+                    accessibilityLabel: DesignSystemStrings.close,
+                    size: \.sm,
+                    tint: \.textSecondary,
+                    background: \.surfaceMuted,
+                    // 기존 시트 닫기 동작과 같게 햅틱 없이 닫는다.
+                    haptic: nil,
+                    action: onClose
+                )
             }
         }
         .padding(.bottom, theme.metrics.spacing.lg)

@@ -10,6 +10,14 @@ import SwiftUI
 /// 저장·전송처럼 시간이 걸리는 작업에서 중복 탭을 막고 진행 상태를 표시한다.
 /// 각 화면에서 `isLoading` 상태를 따로 만들지 않아도 되므로 상태 누락으로 인한
 /// 이중 요청을 구조적으로 예방한다.
+///
+/// 버튼이 화면에서 사라지면(`onDisappear`, 탭 전환 포함) 진행 중인 작업에 취소를 요청한다.
+/// 취소된 작업이 실제로 끝날 때까지는 다시 나타나도 진행 중으로 표시되고 탭을 받지 않는다.
+///
+/// - Important: 이 잠금은 **같은 뷰 identity 안에서만** 유지된다(탭 전환, `LazyVStack` 재등장).
+///   화면이 새로 생성되면(내비게이션 pop 후 재진입, 조건 분기로 뷰가 다시 만들어짐 등) 실행 상태도 새로 시작되어,
+///   이전 작업이 아직 돌고 있어도 다시 탭을 받는다. 중복 요청을 반드시 막아야 하거나 화면을 벗어나도
+///   끝까지 완료돼야 하는 작업은 ViewModel 등 화면보다 오래 사는 쪽이 실행 상태를 소유한다.
 public struct AsyncButton<Label: View>: View {
     public init(
         role: ButtonRole? = nil,
@@ -49,10 +57,10 @@ public struct AsyncButton<Label: View>: View {
     @ViewBuilder public let label: Label
 
     @Environment(\.theme) private var theme
-    @State private var runningTask: Task<Void, Never>?
+    @State private var runner = AsyncTaskRunner()
 
     private var isRunning: Bool {
-        runningTask != nil
+        runner.isRunning
     }
 
     public var body: some View {
@@ -65,8 +73,7 @@ public struct AsyncButton<Label: View>: View {
         .accessibilityValue(isRunning ? DesignSystemStrings.inProgress : "")
         .onDisappear {
             // 화면을 벗어나면 남은 작업을 취소해 유령 업데이트를 막는다.
-            runningTask?.cancel()
-            runningTask = nil
+            runner.cancel()
         }
     }
 
@@ -98,16 +105,10 @@ public struct AsyncButton<Label: View>: View {
     }
 
     private func start() {
-        // 탭 연타로 작업이 중복 실행되지 않도록 방어한다.
-        guard runningTask == nil else { return }
-
-        if let haptic {
-            haptic.trigger()
-        }
-
-        runningTask = Task {
-            await action()
-            runningTask = nil
+        // 탭 연타로 작업이 중복 실행되지 않도록 방어한다. 판단은 `runner` 한 곳에서 하고,
+        // 햅틱은 실제로 시작될 때만 울린다(거부된 탭에서는 울리지 않는다).
+        runner.start(action) {
+            haptic?.trigger()
         }
     }
 }

@@ -104,10 +104,22 @@ public struct AppFittedSheet<Content: View>: View {
             viewportHeight = newHeight
         }
         // 요청한 높이가 화면을 넘으면 시스템이 최대 높이로 제한한다.
-        .presentationDetents([.height(contentHeight)], selection: $selectedDetent)
+        // 전환 구간의 detent 구성과 보정 판단은 `FittedSheetDetent`에 있다.
+        .presentationDetents(
+            FittedSheetDetent.detents(selected: selectedDetent, contentHeight: contentHeight),
+            selection: $selectedDetent
+        )
         .onChange(of: contentHeight) { _, newHeight in
             withAnimation(.appSpring()) {
                 selectedDetent = .height(newHeight)
+            }
+        }
+        .onChange(of: selectedDetent) { _, detent in
+            guard let fitted = FittedSheetDetent.correction(for: detent, contentHeight: contentHeight) else {
+                return
+            }
+            withAnimation(.appSpring()) {
+                selectedDetent = fitted
             }
         }
         .presentationDragIndicator(showsDragIndicator ? .visible : .hidden)

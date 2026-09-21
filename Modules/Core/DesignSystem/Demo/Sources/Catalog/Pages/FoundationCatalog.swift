@@ -88,17 +88,15 @@ struct FoundationCatalog: View {
                         )
 
                         HStack(spacing: theme.metrics.spacing.sm) {
-                            Image(report.passes ? .success : .error)
+                            Image(verdictIcon(report.verdict))
                                 .appIcon(\.xs, weight: .semibold)
-                                .foregroundStyle(
-                                    report.passes ? theme.colors.success : theme.colors.danger
-                                )
+                                .foregroundStyle(verdictColor(report.verdict))
 
                             Text(pair.name)
                                 .appText(\.caption, color: \.textSecondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                            Text(String(format: "%.2f", report.ratio))
+                            Text(report.formattedRatio)
                                 .appText(\.caption, color: \.textTertiary)
                                 .monospacedDigit()
                         }
@@ -162,6 +160,23 @@ struct FoundationCatalog: View {
         ("xxs", \.xxs), ("xs", \.xs), ("sm", \.sm), ("md", \.md),
         ("lg", \.lg), ("xl", \.xl), ("xxl", \.xxl), ("xxxl", \.xxxl),
     ]
+
+    private func verdictIcon(_ verdict: ColorContrast.Report.Verdict) -> AppIcon {
+        switch verdict {
+        case .pass: .success
+        case .fail: .error
+        case .indeterminate: .warning
+        }
+    }
+
+    /// 판정 불가(반투명 배경)는 미달과 구분되도록 보조 색으로 표시한다.
+    private func verdictColor(_ verdict: ColorContrast.Report.Verdict) -> Color {
+        switch verdict {
+        case .pass: theme.colors.success
+        case .fail: theme.colors.danger
+        case .indeterminate: theme.colors.textSecondary
+        }
+    }
 }
 
 // MARK: - Previews

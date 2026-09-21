@@ -129,4 +129,45 @@ struct ComponentSnapshotTests {
 
         #expect(failure == nil, "\(failure ?? "")")
     }
+
+    /// 닫기 버튼이 `AppIconButton(background:)`로 바뀌었으므로 원형 배경의 크기(44pt)와 위치를 고정한다.
+    @Test("시트 헤더", arguments: conditions)
+    func sheetHeader(condition: (name: String, scheme: ColorScheme, size: DynamicTypeSize)) {
+        let failure = Snapshot.compare(
+            AppSheetHeader(title: "정렬 기준", subtitle: "콘텐츠 높이에 맞춰 열립니다") {}
+                .padding()
+                // 하네스는 배경을 칠하지 않으므로, 다크 모드 외형이 보이도록 화면 배경을 깐다.
+                .appScreenBackground(),
+            named: "AppSheetHeader",
+            size: CGSize(width: 320, height: 160),
+            colorScheme: condition.scheme,
+            dynamicTypeSize: condition.size
+        )
+
+        #expect(failure == nil, "\(failure ?? "")")
+    }
+
+    @Test("아이콘 버튼", arguments: conditions)
+    func iconButtons(condition: (name: String, scheme: ColorScheme, size: DynamicTypeSize)) {
+        let failure = Snapshot.compare(
+            HStack(spacing: 16) {
+                AppIconButton(icon: .close, accessibilityLabel: "닫기") {}
+                AppIconButton(
+                    icon: .close,
+                    accessibilityLabel: "닫기",
+                    size: \.sm,
+                    tint: \.textSecondary,
+                    background: \.surfaceMuted
+                ) {}
+            }
+            .padding()
+            .appScreenBackground(),
+            named: "AppIconButton",
+            size: CGSize(width: 200, height: 120),
+            colorScheme: condition.scheme,
+            dynamicTypeSize: condition.size
+        )
+
+        #expect(failure == nil, "\(failure ?? "")")
+    }
 }
