@@ -172,7 +172,7 @@ public extension Project {
                     product: .app,
                     bundleId: "\(AppConstants.bundleID(for: name))$(BUNDLE_ID_SUFFIX)",
                     deploymentTargets: AppConstants.deploymentTargets,
-                    infoPlist: .runnable(),
+                    infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme]),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
                     dependencies: dependencies

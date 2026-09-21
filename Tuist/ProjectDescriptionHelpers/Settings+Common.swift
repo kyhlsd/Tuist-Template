@@ -59,8 +59,13 @@ public extension InfoPlist {
     ///
     /// - Parameter displayName: 홈 화면에 보이는 이름. 앱은 xcconfig 의 APP_DISPLAY_NAME 을,
     ///   데모 앱은 "HomeDemo" 처럼 자기 이름을 쓴다. 같은 이름이면 기기에서 구분할 수 없다.
-    static func runnable(displayName: String = "$(APP_DISPLAY_NAME)") -> InfoPlist {
-        .extendingDefault(with: [
+    /// - Parameter urlSchemes: 딥링크로 받을 커스텀 URL 스킴. 비어 있으면 `CFBundleURLTypes` 를 넣지 않는다.
+    ///   앱만 넘긴다. 데모 앱까지 같은 스킴을 등록하면 어느 앱이 링크를 받을지 알 수 없다.
+    static func runnable(
+        displayName: String = "$(APP_DISPLAY_NAME)",
+        urlSchemes: [String] = []
+    ) -> InfoPlist {
+        var plist: [String: Plist.Value] = [
             "CFBundleDisplayName": .string(displayName),
             "CFBundleShortVersionString": "$(MARKETING_VERSION)",
             "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
@@ -70,6 +75,15 @@ public extension InfoPlist {
             "MAP_SDK_KEY": "$(MAP_SDK_KEY)",
             "CRASH_REPORTING_DSN": "$(CRASH_REPORTING_DSN)",
             "UILaunchScreen": [:],
-        ])
+        ]
+        if !urlSchemes.isEmpty {
+            plist["CFBundleURLTypes"] = [
+                [
+                    "CFBundleURLName": "$(PRODUCT_BUNDLE_IDENTIFIER)",
+                    "CFBundleURLSchemes": .array(urlSchemes.map { .string($0) }),
+                ],
+            ]
+        }
+        return .extendingDefault(with: plist)
     }
 }

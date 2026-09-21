@@ -22,6 +22,11 @@ public enum AppConstants {
     public static let organizationName = "Olive Bridge"
     public static let deploymentTargets: DeploymentTargets = .iOS("17.0")
     public static let destinations: Destinations = .iOS
+    /// 앱의 커스텀 URL 스킴(`tuistapp://home/items/42`). 템플릿으로 새 앱을 만들면 바꾼다.
+    ///
+    /// 앱 타깃의 Info.plist(`CFBundleURLTypes`)에만 등록한다. 데모 앱은 등록하지 않는다.
+    /// 앱 코드는 스킴을 비교하지 않으므로 여기만 바꾸면 된다.
+    public static let urlScheme = "tuistapp"
 
     /// 모듈 이름으로 번들 ID 를 만든다.
     public static func bundleID(for name: String) -> String {

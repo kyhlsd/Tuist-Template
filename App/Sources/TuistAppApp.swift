@@ -15,6 +15,7 @@ struct TuistAppApp: App {
         WindowGroup {
             RootView(container: container, router: appDelegate.router)
                 .theme(.standard)
+                .onOpenURL { appDelegate.router.handle($0) }
         }
     }
 }
