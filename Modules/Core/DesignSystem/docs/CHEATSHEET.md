@@ -50,22 +50,29 @@ AsyncButton("동기화", icon: .refresh,
 .buttonStyle(.appSecondary)
 ```
 
-`progress`는 `.replacesLabel`(기본) / `.besideLabel` / `.none`.
+`progress`는 `.replacesLabel`(기본) / `.besideLabel` / `.none`. `haptic:`으로 시작 햅틱을 바꾸거나 `nil`로 끈다.
 
-> **주의:** 버튼이 화면에서 사라지면(`onDisappear`, 탭 전환 포함) 진행 중인 작업이 취소된다.
-> 취소된 작업이 실제로 끝날 때까지는 다시 나타나도 진행 중으로 표시되고 탭을 받지 않는다(중복 요청 방지).
-> 단, 이 잠금은 같은 화면 인스턴스 안에서만 유지된다. pop 후 재진입처럼 화면이 새로 만들어지면 다시 탭을 받는다.
-> `action`에서 `Task.isCancelled`나 취소를 확인하는 API를 쓰면 더 빨리 풀린다.
-> 화면을 벗어나도 끝까지 완료돼야 하는 저장은 ViewModel 등 화면보다 오래 사는 쪽에서 실행한다.
+동작 규칙:
+
+- 작업이 끝날 때까지 탭을 받지 않는다. 연타해도 작업과 햅틱은 한 번만 실행된다.
+- 버튼이 화면에서 사라지면(탭 전환 포함) 작업에 취소를 요청한다. 취소된 작업이 실제로 끝날 때까지는 다시 나타나도 진행 중으로 표시된다.
+  `action` 안에서 취소를 확인하면(`Task.isCancelled`, 취소를 지원하는 `URLSession` 등) 더 빨리 풀린다.
+- 잠금은 같은 화면 인스턴스 안에서만 유지된다. pop 후 재진입처럼 화면이 새로 만들어지면 다시 탭을 받는다.
+- 화면을 벗어나도 끝까지 완료돼야 하거나 중복을 반드시 막아야 하는 작업은 ViewModel처럼 화면보다 오래 사는 쪽에서 실행한다.
 
 ### 아이콘 버튼
 
 ```swift
 AppIconButton(icon: .share, accessibilityLabel: "공유") { share() }
 AppIconButton(icon: .delete, accessibilityLabel: "삭제", tint: \.danger) { delete() }
+
+// 원형 배경 (시트 닫기 버튼처럼 버튼임을 드러낼 때)
+AppIconButton(icon: .close, accessibilityLabel: "닫기",
+              size: \.sm, tint: \.textSecondary,
+              background: \.surfaceMuted) { dismiss() }
 ```
 
-접근성 라벨이 필수 파라미터고 44pt 터치 영역이 강제된다.
+접근성 라벨이 필수 파라미터이고 44pt 터치 영역이 강제된다. 배경을 지정하면 터치 영역 크기의 원이 깔린다.
 
 ### 누를 수 있는 영역
 
@@ -279,6 +286,22 @@ content.appFittedSheet(isPresented: $isShowing) {
 | 액션 목록, 정렬·필터, 짧은 확인 | `appFittedSheet` |
 | 폼 입력, 긴 목록 | `appSheet` + `[.medium, .large]` |
 
+`appFittedSheet`는 콘텐츠 높이만큼 열리고, 화면보다 길면 최대 높이에서 스크롤된다. 텍스트 입력이 있으면 키보드에
+가려질 수 있으니 `appSheet`에 `.large`를 함께 준다.
+
+버튼을 스크롤과 분리해 항상 보이게 하려면 하단 고정 영역을 쓴다.
+
+```swift
+content.appSheet(isPresented: $isShowing, detents: [.medium, .large]) {
+    VStack(spacing: 0) {
+        AppSheetContainer { /* 스크롤 본문 */ }
+        AppSheetFooter {
+            Button("적용") { apply() }.buttonStyle(.appPrimary)
+        }
+    }
+}
+```
+
 ### 다이얼로그
 
 ```swift
@@ -367,26 +390,27 @@ AppAccessibility.announceScreenChange()
 
 ```swift
 @Environment(\.hapticPlayer) private var haptics
-haptics.playIfEnabled(.success)   // 재생기가 nil(햅틱 끔)이면 무시
-haptics.prepareIfEnabled(.light)  // 제스처 시작 시점에 미리 준비
 
-Toggle("알림", isOn: $isOn).appHaptic(.light, trigger: isOn)
+haptics.playIfEnabled(.success)    // 재생기가 nil(햅틱 끔)이면 무시
+haptics.prepareIfEnabled(.light)   // 제스처 시작 시점에 미리 준비
 
-// 앱 설정에서 햅틱을 끌 수 있게 할 때 (루트에서 한 번)
-// 새로 만들지 않고 환경의 기본 재생기를 받아 켜고 끄기만 한다. 인스턴스(생성기 캐시)가 하나로 유지된다.
+Toggle("알림", isOn: $isOn).appHaptic(.light, trigger: isOn)   // 값이 바뀔 때마다
+```
+
+종류: `selection` · `light` · `medium` · `heavy` · `success` · `warning` · `error`
+
+`AsyncButton`, `.appPressable`, `AppIconButton`에 기본으로 물려 있고 `haptic: nil`로 끈다. 실기기에서만 느낄 수 있다.
+
+앱 설정으로 켜고 끄기(루트에서 한 번). 새로 만들지 말고 환경의 기본 재생기를 받아 넘기거나 `nil`을 넘긴다.
+
+```swift
 @Environment(\.hapticPlayer) private var systemHaptics
 
 RootView()
     .hapticPlayer(settings.isHapticEnabled ? systemHaptics : nil)
 ```
 
-`selection` · `light` · `medium` · `heavy` · `success` · `warning` · `error`
-
-`AsyncButton`, `.appPressable`, `AppIconButton`에 기본으로 물려 있고 `haptic: nil`로 끌 수 있다. 실기기에서만 느낄 수 있다.
-테스트에서는 `HapticPlaying`을 따르는 스파이를 `.hapticPlayer(_:)`로 주입해 재생 여부를 검증한다.
-
-기본 재생기는 모듈 밖에 공개하지 않는다(생성기 캐시를 하나로 유지하기 위해서다). ViewModel처럼 뷰 계층 밖에서
-햅틱이 필요하면, 뷰에서 `@Environment(\.hapticPlayer)` 값을 받아 생성자로 넘긴다.
+ViewModel처럼 뷰 밖에서 햅틱이 필요하면 환경값을 생성자로 넘긴다.
 
 ```swift
 @Environment(\.hapticPlayer) private var haptics
@@ -394,6 +418,33 @@ RootView()
 
 .task { viewModel = EditorViewModel(haptics: haptics) }   // (any HapticPlaying)?
 ```
+
+테스트에서는 `HapticPlaying`을 따르는 스파이를 `.hapticPlayer(_:)`나 생성자로 주입해 재생 여부를 검증한다.
+
+---
+
+## 대비 검사
+
+팔레트를 바꾸거나 새 색 조합을 쓸 때 WCAG 기준을 확인한다.
+
+```swift
+ColorContrast.meets(.aa, foreground: theme.colors.textSecondary,
+                    background: theme.colors.surface, in: .dark)          // Bool
+ColorContrast.meetsNonTextRequirement(foreground: theme.colors.border,
+                                      background: theme.colors.background, in: .light)
+
+let report = ColorContrast.report(name: "보조 텍스트",
+                                  foreground: theme.colors.textSecondary,
+                                  background: theme.colors.surface, in: .light)
+report.passes          // 기준 통과 여부
+report.verdict         // .pass / .fail / .indeterminate
+report.formattedRatio  // "4.54" (판정 불가면 "—")
+```
+
+- 반투명 전경(`accent.opacity(0.5)` 등)은 배경과 합성한 색으로 계산한다.
+- 반투명 배경은 아래에 무엇이 깔리느냐에 따라 달라져 판정할 수 없다. `ratio(foreground:background:in:)`는 `nil`,
+  `meets`는 `false`, `report`는 `.indeterminate`를 돌려준다.
+- 새 토큰 조합은 `ColorTokenContrastPairs`에 추가하면 토큰 테스트가 라이트·다크 모두 검사한다.
 
 ---
 
