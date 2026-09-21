@@ -20,10 +20,9 @@ import UIKit
 enum Snapshot {
     /// 스냅샷 비교가 가능한 환경인지.
     ///
-    /// 기준 이미지는 컴파일 시점의 소스 경로(`#filePath`)에 저장되는데,
-    /// 이는 Mac의 경로다. 시뮬레이터는 호스트 파일 시스템을 그대로 볼 수 있어
-    /// 읽고 쓸 수 있지만, 실기기에는 그 경로가 존재하지 않고 샌드박스 밖으로
-    /// 쓸 수도 없다. 기기·해상도에 따라 렌더링 결과가 달라져 비교 자체도
+    /// 기준 이미지는 컴파일 시점의 소스 경로(`#filePath`)에 기록하는데,
+    /// 이는 Mac의 경로다. 시뮬레이터는 호스트 파일 시스템에 쓸 수 있지만,
+    /// 실기기에는 그 경로가 존재하지 않고 샌드박스 밖으로 쓸 수도 없다. 기기·해상도에 따라 렌더링 결과가 달라져 비교 자체도
     /// 무의미하므로, 스냅샷 테스트는 시뮬레이터 한 기종으로 고정해 실행한다.
     ///
     /// - Note: 컴파일 타임에 결정되는 값이므로 액터 격리가 필요 없다.
@@ -101,20 +100,24 @@ enum Snapshot {
         ]
         let identifier = parts.compactMap(\.self).joined(separator: "-")
 
-        let url = referenceURL(for: identifier, file: file)
+        let recordURL = recordRoot(file: file).appendingPathComponent("\(identifier).png")
 
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        guard let referenceURL = referenceURL(for: identifier) else {
             guard isRecording else {
-                return "기준 이미지가 없습니다: \(identifier). Snapshot.isRecording = true 로 한 번 실행해 생성하세요."
+                return """
+                기준 이미지가 없습니다: \(identifier)
+                Snapshot.isRecording = true 로 한 번 실행해 생성한 뒤, 새 이미지가 테스트 번들에 들어가도록
+                tuist generate 후 다시 실행하세요.
+                """
             }
 
             do {
-                try write(rendered, to: url)
+                try write(rendered, to: recordURL)
                 return nil
             } catch {
                 return """
                 기준 이미지를 저장하지 못했습니다: \(identifier)
-                경로: \(url.path)
+                경로: \(recordURL.path)
                 원인: \(error.localizedDescription)
                 쓰기가 막힌 환경이라면 SNAPSHOT_DIR 환경 변수로 경로를 지정하세요.
                 """
@@ -122,10 +125,10 @@ enum Snapshot {
         }
 
         guard
-            let referenceData = try? Data(contentsOf: url),
+            let referenceData = try? Data(contentsOf: referenceURL),
             let reference = UIImage(data: referenceData)
         else {
-            return "기준 이미지를 읽지 못했습니다: \(identifier)"
+            return "기준 이미지를 읽지 못했습니다: \(identifier) (\(referenceURL.path))"
         }
 
         let difference = pixelDifference(between: rendered, and: reference)
@@ -135,7 +138,7 @@ enum Snapshot {
         }
 
         // 실패 시 실제 결과를 남겨 눈으로 비교할 수 있게 한다.
-        let failureURL = url
+        let failureURL = recordURL
             .deletingLastPathComponent()
             .appendingPathComponent("__Failures__/\(identifier).png")
         try? write(rendered, to: failureURL)
@@ -210,24 +213,36 @@ enum Snapshot {
         }
     }
 
-    /// 기준 이미지가 저장될 루트 디렉터리.
+    /// `SNAPSHOT_DIR` 환경 변수. 설정되면 기준 이미지를 이 디렉터리에서 읽고 이곳에 기록한다.
     ///
-    /// 기본값은 테스트 소스 옆의 `__Snapshots__`다. 소스 디렉터리에 쓸 수 없는
-    /// 환경(실기기 실행, 샌드박스 제한이 강한 CI 등)에서는 `SNAPSHOT_DIR`
-    /// 환경 변수로 경로를 지정한다. Scheme의 Test 액션에서 설정할 수 있다.
-    private static func snapshotRoot(file: StaticString) -> URL {
-        if let override = ProcessInfo.processInfo.environment["SNAPSHOT_DIR"], !override.isEmpty {
-            return URL(fileURLWithPath: override, isDirectory: true)
-        }
+    /// 소스 디렉터리에 쓸 수 없는 환경(샌드박스 제한이 강한 CI 등)에서 쓴다.
+    /// Scheme의 Test 액션이나 `TEST_RUNNER_SNAPSHOT_DIR`로 넘긴다.
+    private static var overrideRoot: URL? {
+        guard let path = ProcessInfo.processInfo.environment["SNAPSHOT_DIR"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }
 
-        return URL(fileURLWithPath: "\(file)")
+    /// 새 기준 이미지와 실패 이미지를 기록할 디렉터리. 기본값은 테스트 소스 옆의 `__Snapshots__`다.
+    ///
+    /// 기록은 시뮬레이터 프로세스가 직접 파일을 만드는 것이라 보호된 폴더(~/Desktop 등)에서도 된다.
+    private static func recordRoot(file: StaticString) -> URL {
+        overrideRoot ?? URL(fileURLWithPath: "\(file)")
             .deletingLastPathComponent()
             .appendingPathComponent("__Snapshots__")
     }
 
-    /// 기준 이미지 경로.
-    private static func referenceURL(for identifier: String, file: StaticString) -> URL {
-        snapshotRoot(file: file).appendingPathComponent("\(identifier).png")
+    /// 비교에 쓸 기준 이미지. 없으면 `nil`.
+    ///
+    /// 소스 경로가 아니라 **테스트 번들**에서 읽는다. 저장소가 보호된 폴더(~/Desktop, ~/Documents)에 있으면
+    /// 시뮬레이터 프로세스가 자기가 만들지 않은 파일(git이 체크아웃한 기준 이미지)을 읽지 못해,
+    /// 저장소 위치에 따라 결과가 달라진다. 번들에는 빌드할 때 Xcode가 복사하므로 위치와 무관하게 읽힌다.
+    /// (`Project+Templates.swift`의 `hasSnapshotTests` 참고)
+    private static func referenceURL(for identifier: String) -> URL? {
+        if let overrideRoot {
+            let url = overrideRoot.appendingPathComponent("\(identifier).png")
+            return FileManager.default.fileExists(atPath: url.path) ? url : nil
+        }
+        return Bundle(for: SnapshotBundleToken.self).url(forResource: identifier, withExtension: "png")
     }
 
     private static func write(_ image: UIImage, to url: URL) throws {
@@ -242,3 +257,6 @@ enum Snapshot {
         try data.write(to: url)
     }
 }
+
+/// 테스트 번들을 찾기 위한 표식. 기준 이미지가 이 번들의 리소스로 들어 있다.
+private final class SnapshotBundleToken {}

@@ -34,7 +34,8 @@ public extension Project {
         hasTestingSupport: Bool = false,
         testingDependencies: [TargetDependency] = [],
         hasDemoApp: Bool = false,
-        demoDependencies: [TargetDependency] = []
+        demoDependencies: [TargetDependency] = [],
+        hasSnapshotTests: Bool = false
     ) -> Project {
         let interfaceName = "\(name)Interface"
         let testingName = "\(name)Testing"
@@ -67,7 +68,11 @@ public extension Project {
             + (hasTestingSupport ? [.target(name: testingName)] : [])
 
         targets.append(
-            .testTarget(for: name, dependencies: testDependencies + localSupport)
+            .testTarget(
+                for: name,
+                dependencies: testDependencies + localSupport,
+                hasSnapshotTests: hasSnapshotTests
+            )
         )
 
         if hasDemoApp {
@@ -96,6 +101,9 @@ public extension Project {
     ///
     /// isMainActorByDefault 는 모듈의 모든 타깃(구현, 테스트, 데모)에 적용된다.
     /// `Settings.mainActorByDefault` 참고.
+    ///
+    /// hasSnapshotTests 는 `Tests/__Snapshots__/*.png` 를 테스트 번들 리소스로 넣는다.
+    /// (`Target.testTarget` 참고)
     static func core(
         name: String,
         dependencies: [TargetDependency] = [],
@@ -105,7 +113,8 @@ public extension Project {
         testingDependencies: [TargetDependency] = [],
         hasDemoApp: Bool = false,
         demoDependencies: [TargetDependency] = [],
-        isMainActorByDefault: Bool = false
+        isMainActorByDefault: Bool = false,
+        hasSnapshotTests: Bool = false
     ) -> Project {
         let testingName = "\(name)Testing"
         let testingTarget: [TargetDependency] = hasTestingSupport ? [.target(name: testingName)] : []
@@ -117,7 +126,11 @@ public extension Project {
                 resources: hasResources ? ["Resources/**"] : nil,
                 dependencies: dependencies
             ),
-            .testTarget(for: name, dependencies: testDependencies + testingTarget),
+            .testTarget(
+                for: name,
+                dependencies: testDependencies + testingTarget,
+                hasSnapshotTests: hasSnapshotTests
+            ),
         ]
 
         if hasTestingSupport {
@@ -226,9 +239,16 @@ private extension Target {
     /// product 는 .unitTests 그대로 두면 Swift Testing 이 동작한다.
     /// enforceExplicitDependencies 가 켜져 있으므로, 테스트에서 import 하는
     /// 모듈은 전부 dependencies 로 명시해야 한다. (예: Domain 픽스처)
+    ///
+    /// hasSnapshotTests 가 켜지면 스냅샷 기준 이미지를 테스트 번들에 복사한다.
+    /// 테스트는 소스 경로가 아니라 번들에서 기준 이미지를 읽는다. 시뮬레이터 프로세스는
+    /// 보호된 폴더(예: ~/Desktop, ~/Documents)에 있는 파일 중 자기가 만들지 않은 것을
+    /// 읽지 못하므로, 저장소 위치에 따라 테스트 결과가 달라지는 것을 막기 위해서다.
+    /// 스냅샷을 쓰지 않는 모듈에서 빈 glob 경고가 나지 않도록 선택으로 둔다.
     static func testTarget(
         for name: String,
-        dependencies: [TargetDependency] = []
+        dependencies: [TargetDependency] = [],
+        hasSnapshotTests: Bool = false
     ) -> Target {
         .target(
             name: "\(name)Tests",
@@ -237,6 +257,7 @@ private extension Target {
             bundleId: AppConstants.bundleID(for: "\(name)Tests"),
             deploymentTargets: AppConstants.deploymentTargets,
             sources: ["Tests/**"],
+            resources: hasSnapshotTests ? ["Tests/__Snapshots__/*.png"] : nil,
             dependencies: dependencies + [.target(name: name)]
         )
     }

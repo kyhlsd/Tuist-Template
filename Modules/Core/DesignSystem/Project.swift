@@ -19,5 +19,7 @@ let project = Project.core(
     name: "DesignSystem",
     hasResources: true,
     hasDemoApp: true,
-    isMainActorByDefault: true
+    isMainActorByDefault: true,
+    // 기준 이미지는 테스트 번들에서 읽는다. (Target.testTarget 참고)
+    hasSnapshotTests: true
 )

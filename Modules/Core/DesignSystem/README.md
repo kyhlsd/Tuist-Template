@@ -207,6 +207,15 @@ static var isRecording = true   // 실행 → __Snapshots__/ 생성 → 확인 �
 
 `__Snapshots__/`는 커밋하고 `__Failures__/`는 `.gitignore`에 넣는다. 시뮬레이터 기종은 하나로 고정한다.
 
+기준 이미지는 **테스트 번들에서 읽는다**(`Project.swift`의 `hasSnapshotTests: true`). 기록과 실패 이미지는 소스 옆
+`__Snapshots__/`에 쓴다. 소스 경로에서 바로 읽지 않는 이유는, 저장소가 `~/Desktop`·`~/Documents` 같은 보호된
+폴더에 있으면 시뮬레이터가 git이 체크아웃한 이미지를 읽지 못해 모든 스냅샷이 "기준 이미지를 읽지 못했습니다"로
+실패하기 때문이다.
+
+새 기준 이미지를 기록한 뒤에는 `tuist generate`를 한 번 돌려야 번들에 포함된다. 기존 이미지를 갱신할 때는
+빌드만 하면 된다. 쓰기까지 막힌 환경(CI 등)에서는 `SNAPSHOT_DIR`(xcodebuild에는 `TEST_RUNNER_SNAPSHOT_DIR`)로
+읽기·쓰기 경로를 함께 바꾼다.
+
 ---
 
 ## 문구와 지역화
