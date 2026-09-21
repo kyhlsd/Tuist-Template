@@ -1,5 +1,9 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(./.claude/scripts/review-snapshot.sh)",
+      "Bash(.claude/scripts/review-snapshot.sh)"
+    ],
     "deny": [
       "Bash(git push *)",
       "Bash(git reset --hard *)"
