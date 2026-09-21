@@ -31,8 +31,13 @@ public extension Color {
     ///
     /// 에셋 카탈로그를 쓰지 않고도 다크 모드 대응이 가능하며,
     /// 색상 정의가 코드 한곳에 모여 diff 리뷰가 쉬워진다.
-    init(light: Color, dark: Color) {
-        self.init(uiColor: UIColor { traits in
+    ///
+    /// `nonisolated`인 이유: 모듈 기본 격리가 MainActor라 이대로 두면 provider 클로저도
+    /// MainActor로 추론된다. SwiftUI는 비동기 렌더링 중 백그라운드 스레드에서 색을 해석하므로
+    /// 런타임 격리 검사에 걸려 크래시한다. 클로저는 trait 읽기와 `Color` → `UIColor` 변환만
+    /// 하므로 어느 스레드에서 실행돼도 안전하다.
+    nonisolated init(light: Color, dark: Color) {
+        self.init(uiColor: UIColor { @Sendable traits in
             traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
         })
     }
