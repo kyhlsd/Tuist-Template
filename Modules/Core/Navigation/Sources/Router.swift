@@ -6,17 +6,21 @@
 import Observation
 import SwiftUI
 
-/// 내비게이션 스택 하나의 상태.
+/// 데모 앱·프리뷰용 단독 라우터.
 ///
-/// 탭마다 하나씩 만들어 `NavigationStack(path: $router.path)` 에 연결한다.
-/// 시트·다이얼로그 같은 모달은 다루지 않는다. 모달은 각 화면이 자기 상태로 띄운다.
+/// 앱은 탭·모달·딥링크를 함께 다루는 App 타깃의 `AppRouter` 를 쓴다. 피처 데모 앱은
+/// `AppRouter` 를 볼 수 없으므로 이 타입으로 스택 하나를 흉내 낸다.
+/// `NavigationStack(path: $router.path)` 에 연결한다.
+///
+/// 모달은 `presented` 에 기록만 한다. 데모에서 띄우려면 이 값을 보고 직접 표시한다.
 @Observable
 public final class Router: Routing {
     public var path = NavigationPath()
+    public private(set) var presented: (route: AnyHashable, style: PresentationStyle)?
 
     public init() {}
 
-    public func push(_ route: some Hashable) {
+    public func push(_ route: some Route) {
         path.append(route)
     }
 
@@ -28,5 +32,13 @@ public final class Router: Routing {
 
     public func popToRoot() {
         path.removeLast(path.count)
+    }
+
+    public func present(_ route: some Route, style: PresentationStyle) {
+        presented = (route: AnyHashable(route), style: style)
+    }
+
+    public func dismiss() {
+        presented = nil
     }
 }

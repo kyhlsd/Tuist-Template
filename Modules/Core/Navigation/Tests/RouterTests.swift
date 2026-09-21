@@ -36,9 +36,30 @@ struct RouterTests {
 
         #expect(router.path.isEmpty)
     }
+
+    @Test("present 하면 Route 와 방식을 기록한다")
+    func present_route_recordsPresented() throws {
+        let router = Router()
+
+        router.present(TestRoute.first, style: .sheet)
+
+        let presented = try #require(router.presented)
+        #expect(presented.route == AnyHashable(TestRoute.first))
+        #expect(presented.style == .sheet)
+    }
+
+    @Test("dismiss 하면 띄운 모달 기록이 사라진다")
+    func dismiss_afterPresent_clearsPresented() {
+        let router = Router()
+        router.present(TestRoute.first, style: .fullScreenCover)
+
+        router.dismiss()
+
+        #expect(router.presented == nil)
+    }
 }
 
-private enum TestRoute: Hashable {
+private enum TestRoute: Route {
     case first
     case second
 }

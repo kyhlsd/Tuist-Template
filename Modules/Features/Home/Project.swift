@@ -12,6 +12,7 @@ let project = Project.feature(
     name: "Home",
     interfaceDependencies: [
         .module(.domain),
+        .module(.navigation),
     ],
     dependencies: [
         .module(.domain),

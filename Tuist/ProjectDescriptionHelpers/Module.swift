@@ -15,6 +15,7 @@ import ProjectDescription
 /// 의존 방향은 항상 아래로만 흐른다.
 ///
 ///     App ──→ Feature ──→ FeatureInterface ──→ Domain
+///      │         │                 └──────→ Navigation (Route 프로토콜)
 ///      │         ├──────→ Domain
 ///      │         ├──────→ DesignSystem
 ///      │         └──────→ Navigation
@@ -49,7 +50,8 @@ public enum Module: Sendable {
     case data
     case designSystem
     case networking
-    /// 내비게이션 스택 상태(`Router`)와 이동 요청 창구(`Routing`).
+    /// 이동 요청 창구(`Routing`), push 가능한 값의 마커(`Route`), 데모용 단독 `Router`.
+    /// FeatureInterface 도 `Route` 를 채택하기 위해 의존한다.
     case navigation
 
     public var name: String {
