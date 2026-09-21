@@ -168,7 +168,7 @@ typography.provider = CustomFontProvider { weight in
 | 오버레이 | `.appToast` `AppBanner` `.appStatusBanner` `.appSheet` `.appFittedSheet` `.appDialog` |
 | 레이아웃 | `.appCard` `.appScreenPadding` `.appScreenBackground` `.appReadableWidth` `.appShadow` |
 | 접근성 | `.appFocusRing` `.appMinimumHitTarget` `.appAccessibilityElement` `AppAdaptiveStack` |
-| 햅틱 | `AppHaptic.success.trigger()` `.appHaptic(_:trigger:)` |
+| 햅틱 | `@Environment(\.hapticPlayer)` `.appHaptic(_:trigger:)` `.hapticPlayer(_:)` |
 
 ---
 
@@ -178,6 +178,9 @@ typography.provider = CustomFontProvider { weight in
 
 | 이전 | 이후 |
 |---|---|
+| `AppHaptic.success.trigger()` | `@Environment(\.hapticPlayer) var haptics` → `haptics.playIfEnabled(.success)` |
+| `AppHaptic.light.prepare()` | `haptics.prepareIfEnabled(.light)` |
+| `AppHapticSettings.isEnabled = false` | 루트에서 `.hapticPlayer(nil)` 주입 |
 | `ColorContrast.ratio(foreground:background:in:)` (`Double`) | `Double?`. 반투명 배경이면 `nil` |
 | `ColorContrast.relativeLuminance(of:in:)` | 비공개. 대비 판정은 `ratio`, `meets`, `report`로 |
 | `ColorContrast.Report.ratio` (`Double`) | `Double?`. 반투명 배경이면 `nil`. 표시에는 `formattedRatio` |

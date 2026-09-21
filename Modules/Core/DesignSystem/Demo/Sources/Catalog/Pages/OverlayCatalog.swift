@@ -17,6 +17,7 @@ struct OverlayCatalog: View {
     }
 
     @Environment(\.theme) private var theme
+    @Environment(\.hapticPlayer) private var hapticPlayer
 
     @State private var toast: AppToast?
     @State private var dialog: AppDialog?
@@ -133,7 +134,7 @@ struct OverlayCatalog: View {
                 ) {
                     ForEach(AppHaptic.allCases, id: \.self) { haptic in
                         Button(String(describing: haptic)) {
-                            haptic.trigger()
+                            hapticPlayer.playIfEnabled(haptic)
                         }
                         .buttonStyle(.appSecondary(size: .small))
                     }

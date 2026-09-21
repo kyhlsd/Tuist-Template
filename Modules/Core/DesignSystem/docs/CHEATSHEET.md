@@ -366,13 +366,34 @@ AppAccessibility.announceScreenChange()
 ## 햅틱
 
 ```swift
-AppHaptic.success.trigger()
+@Environment(\.hapticPlayer) private var haptics
+haptics.playIfEnabled(.success)   // 재생기가 nil(햅틱 끔)이면 무시
+haptics.prepareIfEnabled(.light)  // 제스처 시작 시점에 미리 준비
+
 Toggle("알림", isOn: $isOn).appHaptic(.light, trigger: isOn)
+
+// 앱 설정에서 햅틱을 끌 수 있게 할 때 (루트에서 한 번)
+// 새로 만들지 않고 환경의 기본 재생기를 받아 켜고 끄기만 한다. 인스턴스(생성기 캐시)가 하나로 유지된다.
+@Environment(\.hapticPlayer) private var systemHaptics
+
+RootView()
+    .hapticPlayer(settings.isHapticEnabled ? systemHaptics : nil)
 ```
 
 `selection` · `light` · `medium` · `heavy` · `success` · `warning` · `error`
 
 `AsyncButton`, `.appPressable`, `AppIconButton`에 기본으로 물려 있고 `haptic: nil`로 끌 수 있다. 실기기에서만 느낄 수 있다.
+테스트에서는 `HapticPlaying`을 따르는 스파이를 `.hapticPlayer(_:)`로 주입해 재생 여부를 검증한다.
+
+기본 재생기는 모듈 밖에 공개하지 않는다(생성기 캐시를 하나로 유지하기 위해서다). ViewModel처럼 뷰 계층 밖에서
+햅틱이 필요하면, 뷰에서 `@Environment(\.hapticPlayer)` 값을 받아 생성자로 넘긴다.
+
+```swift
+@Environment(\.hapticPlayer) private var haptics
+@State private var viewModel: EditorViewModel?
+
+.task { viewModel = EditorViewModel(haptics: haptics) }   // (any HapticPlaying)?
+```
 
 ---
 

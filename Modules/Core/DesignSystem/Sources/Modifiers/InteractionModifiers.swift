@@ -145,10 +145,11 @@ public struct AppIconButton: View {
     public let action: () -> Void
 
     @Environment(\.theme) private var theme
+    @Environment(\.hapticPlayer) private var hapticPlayer
 
     public var body: some View {
         Button {
-            haptic?.trigger()
+            hapticPlayer.playIfEnabled(haptic)
             action()
         } label: {
             Image(icon)

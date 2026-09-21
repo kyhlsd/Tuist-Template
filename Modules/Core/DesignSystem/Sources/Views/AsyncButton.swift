@@ -57,6 +57,7 @@ public struct AsyncButton<Label: View>: View {
     @ViewBuilder public let label: Label
 
     @Environment(\.theme) private var theme
+    @Environment(\.hapticPlayer) private var hapticPlayer
     @State private var runner = AsyncTaskRunner()
 
     private var isRunning: Bool {
@@ -108,7 +109,7 @@ public struct AsyncButton<Label: View>: View {
         // 탭 연타로 작업이 중복 실행되지 않도록 방어한다. 판단은 `runner` 한 곳에서 하고,
         // 햅틱은 실제로 시작될 때만 울린다(거부된 탭에서는 울리지 않는다).
         runner.start(action) {
-            haptic?.trigger()
+            hapticPlayer.playIfEnabled(haptic)
         }
     }
 }

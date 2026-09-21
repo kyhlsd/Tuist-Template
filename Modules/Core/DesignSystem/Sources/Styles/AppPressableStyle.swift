@@ -51,6 +51,7 @@ private struct PressableContent: View {
     @Environment(\.theme) private var theme
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.hapticPlayer) private var hapticPlayer
 
     var body: some View {
         configuration.label
@@ -68,8 +69,9 @@ private struct PressableContent: View {
             .opacity(opacityValue)
             .animation(.app(theme.metrics.duration.fast), value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
-                guard isPressed, isEnabled, let haptic else { return }
-                haptic.trigger()
+                // 누르는 순간에만, 활성 상태일 때만 울린다. 손을 뗄 때도 `onChange`가 불린다.
+                guard isPressed, isEnabled else { return }
+                hapticPlayer.playIfEnabled(haptic)
             }
     }
 
