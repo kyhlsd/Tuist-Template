@@ -38,7 +38,8 @@ Modules/
   Core/
     Domain/                 엔티티, 에러, Repository 프로토콜 (+ DomainTesting: 스텁·픽스처)
     Data/                   Repository 구현, DTO
-    Networking/             HTTPClient
+    Networking/             OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소
+    Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
     Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
   Features/

@@ -25,7 +25,7 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 | `Sources/NetworkDefaults.swift` | 타임아웃, 재시도 횟수 등 기본값 |
 | `Sources/Auth/` | `AuthTokens`, `TokenStore`, `KeychainTokenStore`, `TokenRefresher` |
 | `Sources/Middleware/` | `RequestIDMiddleware`, `LoggingMiddleware`, `RetryMiddleware`, `AuthMiddleware`, `PublicOperation` |
-| `Sources/Diagnostics/` | `NetworkFailure`(에러 요약과 보고 대상 판정), `NetworkActivityObserving`, `NetworkRequestRecord`(요청 요약 알림) |
+| `Sources/Diagnostics/` | `NetworkFailure`(에러 요약과 보고 대상 판정), `NetworkActivityObserving`, `NetworkRequestRecord`(요청 요약 알림). 진단 전체 구조는 [`Modules/Core/Diagnostics/README.md`](../Diagnostics/README.md) |
 | `Testing/Sources/` | `InMemoryTokenStore`, `RecordingNetworkActivityObserver` (테스트용) |
 
 의존 방향: App → Data → Networking. Data 는 `APIProtocol` 에만 의존하고, Feature 는 이 모듈을 모른다.
