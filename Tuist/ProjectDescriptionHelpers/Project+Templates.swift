@@ -37,6 +37,7 @@ public extension Project {
         demoDependencies: [TargetDependency] = [],
         hasSnapshotTests: Bool = false
     ) -> Project {
+        Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
         let interfaceName = "\(name)Interface"
         let testingName = "\(name)Testing"
 
@@ -116,6 +117,7 @@ public extension Project {
         isMainActorByDefault: Bool = false,
         hasSnapshotTests: Bool = false
     ) -> Project {
+        Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
         let testingName = "\(name)Testing"
         let testingTarget: [TargetDependency] = hasTestingSupport ? [.target(name: testingName)] : []
 
@@ -156,10 +158,16 @@ public extension Project {
     }
 
     /// 앱 타깃. 번들 ID 접미사는 xcconfig 의 BUNDLE_ID_SUFFIX 에서 온다.
+    ///
+    /// - Parameters:
+    ///   - targetSettings: 앱 타깃에만 적용할 빌드 설정. 공통 xcconfig 에 넣으면 모든 모듈로 퍼지는 값을 여기 둔다.
+    ///   - scripts: 앱 타깃의 빌드 스크립트.
     static func app(
         name: String,
         dependencies: [TargetDependency] = [],
-        testDependencies: [TargetDependency] = []
+        testDependencies: [TargetDependency] = [],
+        targetSettings: SettingsDictionary = [:],
+        scripts: [TargetScript] = []
     ) -> Project {
         Project(
             name: name,
@@ -175,7 +183,9 @@ public extension Project {
                     infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme]),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
-                    dependencies: dependencies
+                    scripts: scripts,
+                    dependencies: dependencies,
+                    settings: .settings(base: targetSettings)
                 ),
                 .testTarget(for: name, dependencies: testDependencies),
             ],

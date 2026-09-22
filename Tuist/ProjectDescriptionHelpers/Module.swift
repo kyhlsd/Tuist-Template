@@ -98,3 +98,45 @@ public extension TargetDependency {
         .project(target: "\(module.name)Testing", path: module.path)
     }
 }
+
+// MARK: - 등록부
+
+public extension Module {
+    /// 워크스페이스 스킴이 빌드·테스트하는 모듈 전체. 새 모듈 프로젝트를 만들면 여기에 더한다.
+    ///
+    /// 피처는 `.feature(_:)` 하나로 프로젝트 전체(Interface, Testing, Demo 포함)를 가리킨다.
+    /// 빠뜨리면 `Project.core`/`Project.feature` 가 생성 단계에서 멈춘다.
+    static let all: [Module] = [
+        .domain,
+        .data,
+        .designSystem,
+        .networking,
+        .navigation,
+        .feature("Home"),
+    ]
+
+    /// 데모 앱(`{name}Demo`)을 가진 모듈. 모듈 매니페스트의 `hasDemoApp` 과 같아야 한다.
+    ///
+    /// 워크스페이스 스킴이 데모 앱도 빌드하도록 여기서 목록을 읽는다.
+    /// 둘이 어긋나면 `Project.core`/`Project.feature` 가 생성 단계에서 멈춘다.
+    static let withDemoApp: [Module] = [
+        .designSystem,
+        .feature("Home"),
+    ]
+
+    /// 모듈 매니페스트의 선언이 등록부와 맞는지 확인한다. 어긋나면 생성을 멈춘다.
+    ///
+    /// 등록부에 없는 모듈은 워크스페이스 스킴에서 빠져 빌드·테스트되지 않는다. 조용히 빠지는 것을 막는다.
+    internal static func validateRegistration(name: String, hasDemoApp: Bool) {
+        guard all.contains(where: { $0.name == name }) else {
+            fatalError("\(name) 모듈이 Module.all 에 없습니다. Tuist/ProjectDescriptionHelpers/Module.swift 에 추가하세요.")
+        }
+        let registeredDemo = withDemoApp.contains { $0.name == name }
+        guard registeredDemo == hasDemoApp else {
+            fatalError(
+                "\(name) 의 hasDemoApp(\(hasDemoApp))이 Module.withDemoApp 과 다릅니다. "
+                    + "Tuist/ProjectDescriptionHelpers/Module.swift 를 함께 고치세요."
+            )
+        }
+    }
+}

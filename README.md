@@ -86,13 +86,15 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 | 스킴 | 실행(⌘R) | 테스트(⌘U) |
 | --- | --- | --- |
 | `TuistApp` | 앱 | 앱 테스트만 |
-| `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트 |
+| `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트 (빌드는 앱·모듈·데모 앱만. `Scheme+Workspace.swift`. 배포 아카이브는 `TuistApp` 스킴으로) |
 | `Home` | HomeDemo | HomeTests |
 | `DesignSystem` | DesignSystemDemo (카탈로그) | DesignSystemTests |
 
 ## 모듈 추가
 
 1. `Module.swift` 에 case 를 추가한다. (피처는 `.feature("Name")` 을 쓰면 되므로 추가할 필요 없다)
+   그리고 `Module.all` 에 등록한다. 데모 앱을 켜면 `Module.withDemoApp` 에도 넣는다.
+   워크스페이스 스킴이 이 목록으로 빌드·테스트 대상을 정하므로, 빠지거나 어긋나면 `tuist generate` 가 멈춘다.
 2. `Modules/Core/<Name>/` 또는 `Modules/Features/<Name>/` 에 `Project.swift` 를 만들고
    `Project.core(...)` / `Project.feature(...)` 를 호출한다.
 3. 템플릿이 기대하는 폴더를 만든다. 옵션을 켠 것만 필요하다.
