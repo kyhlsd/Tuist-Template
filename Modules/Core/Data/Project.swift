@@ -18,6 +18,7 @@ let project = Project.core(
     ],
     testDependencies: [
         .module(.domain),
-        .module(.networking), // 테스트 안의 HTTPClient 스텁
+        .module(.networking), // 테스트 안의 APIProtocol 스텁
+        .external(name: "OpenAPIRuntime"), // 스텁이 만드는 UndocumentedPayload
     ]
 )
