@@ -4,3 +4,5 @@
 tuist = "4.208.0"
 swiftformat = "0.63.0"
 swiftlint = "0.65.1"
+# 생성기 버전이 다르면 같은 명세에서도 생성물이 달라진다. Scripts/openapi-generate.sh 가 쓴다.
+"spm:apple/swift-openapi-generator" = "1.13.1"
