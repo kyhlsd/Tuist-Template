@@ -1,0 +1,120 @@
+# 임시 명세. 서버 명세가 확정되면 교체한다.
+# 필드는 가정이다. 수정 후 Scripts/openapi-generate.sh 를 실행하고 생성물을 함께 커밋한다.
+# 공개 operation(토큰 없이 호출)을 추가하면 Sources/Middleware/PublicOperation.swift 도 고친다.
+openapi: 3.1.0
+info:
+  title: TuistApp API
+  version: 0.0.1
+# base URL 은 런타임에 주입한다(App 의 API_BASE_URL).
+servers: []
+security:
+  - bearerAuth: []
+paths:
+  /items:
+    get:
+      operationId: listItems
+      responses:
+        "200":
+          description: 항목 목록
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Item"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/login:
+    post:
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/TokenPair"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/TokenPair"
+        "400":
+          description: 잘못된 refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Unauthorized:
+      description: 인증 실패
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    TokenPair:
+      description: 발급된 토큰
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TokenPair"
+  schemas:
+    Item:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,7 @@
+# swift-openapi-generator 설정. 생성기 버전은 mise.toml 에 고정되어 있다.
+generate:
+  - types
+  - client
+# Data 모듈이 APIProtocol 과 Components 를 쓴다.
+accessModifier: public
+namingStrategy: idiomatic
