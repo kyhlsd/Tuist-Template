@@ -21,7 +21,7 @@ import ProjectDescription
 ///      │         └──────→ Navigation
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
-///      │      └───→ Networking
+///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
@@ -49,6 +49,7 @@ public enum Module: Sendable {
     /// Repository 구현, DTO, 영속성. Domain 의 프로토콜을 구현한다.
     case data
     case designSystem
+    /// OpenAPI 생성 클라이언트, 미들웨어(로그·재시도·인증), 토큰 저장소.
     case networking
     /// 이동 요청 창구(`Routing`), push 가능한 값의 마커(`Route`), 데모용 단독 `Router`.
     /// FeatureInterface 도 `Route` 를 채택하기 위해 의존한다.
