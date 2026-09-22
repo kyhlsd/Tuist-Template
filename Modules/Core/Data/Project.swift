@@ -14,12 +14,14 @@ let project = Project.core(
     name: "Data",
     dependencies: [
         .module(.domain),
+        .module(.diagnostics),
         .module(.networking),
     ],
     testDependencies: [
         .module(.domain),
         .module(.networking), // 테스트 안의 APIProtocol 스텁
-        .testing(.domain), // 보고를 기록하는 SpyDiagnosticReporter
+        .module(.diagnostics), // 테스트가 DiagnosticFailure 를 직접 만든다
+        .testing(.diagnostics), // 보고를 기록하는 SpyDiagnosticReporter
         .external(name: "OpenAPIRuntime"), // 스텁이 만드는 UndocumentedPayload
     ]
 )

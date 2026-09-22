@@ -1,6 +1,6 @@
 //
 //  DiagnosticFailure.swift
-//  Domain
+//  Diagnostics
 //
 
 /// 클라이언트가 보고할 실패 하나. 서버가 볼 수 없는 에러만 담는다.

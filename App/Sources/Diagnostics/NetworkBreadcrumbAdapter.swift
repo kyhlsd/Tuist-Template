@@ -3,12 +3,12 @@
 //  TuistApp
 //
 
-import Domain
+import Diagnostics
 import Networking
 
 /// 끝난 요청의 요약을 breadcrumb 로 바꿔 남긴다.
 ///
-/// Networking 은 Domain 을 모르므로 조립 지점인 App 이 둘을 잇는다.
+/// Networking 은 Diagnostics 를 모르므로 조립 지점인 App 이 둘을 잇는다.
 struct NetworkBreadcrumbAdapter: NetworkActivityObserving {
     private let recorder: any BreadcrumbRecording
 

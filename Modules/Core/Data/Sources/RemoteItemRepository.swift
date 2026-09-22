@@ -3,6 +3,7 @@
 //  Data
 //
 
+import Diagnostics
 import Domain
 import Networking
 

@@ -3,7 +3,7 @@
 //  TuistAppTests
 //
 
-import Domain
+import Diagnostics
 import Networking
 import Testing
 @testable import TuistApp

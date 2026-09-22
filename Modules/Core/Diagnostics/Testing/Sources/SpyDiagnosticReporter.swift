@@ -1,9 +1,9 @@
 //
 //  SpyDiagnosticReporter.swift
-//  DomainTesting
+//  DiagnosticsTesting
 //
 
-import Domain
+import Diagnostics
 import os
 
 /// 보고를 억제 없이 순서대로 기록하는 `DiagnosticReporting`.

@@ -1,6 +1,6 @@
 //
 //  Breadcrumb.swift
-//  Domain
+//  Diagnostics
 //
 
 /// 에러나 크래시 직전에 무슨 일이 있었는지 보여 주는 기록 한 줄.

@@ -1,9 +1,9 @@
 //
 //  DiagnosticFailureTests.swift
-//  DomainTests
+//  DiagnosticsTests
 //
 
-import Domain
+import Diagnostics
 import Testing
 
 @Suite("DiagnosticFailure fingerprint")

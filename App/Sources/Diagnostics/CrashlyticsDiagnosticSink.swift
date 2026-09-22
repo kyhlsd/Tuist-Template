@@ -3,7 +3,7 @@
 //  TuistApp
 //
 
-import Domain
+import Diagnostics
 import FirebaseCrashlytics
 import Foundation
 

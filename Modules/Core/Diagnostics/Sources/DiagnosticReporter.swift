@@ -1,6 +1,6 @@
 //
 //  DiagnosticReporter.swift
-//  Domain
+//  Diagnostics
 //
 
 import Foundation

@@ -20,6 +20,7 @@ let project = Project.app(
         .module(.networking),
         .module(.designSystem),
         .module(.navigation),
+        .module(.diagnostics),
         // Crashlytics 전송 어댑터(App/Sources/Diagnostics)만 쓴다. 모듈은 Firebase 를 모른다.
         .external(name: "FirebaseCrashlytics"),
         .external(name: "FirebaseCore"),

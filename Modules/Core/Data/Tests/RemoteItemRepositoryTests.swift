@@ -4,8 +4,9 @@
 //
 
 import Data
+import Diagnostics
+import DiagnosticsTesting
 import Domain
-import DomainTesting
 import Foundation
 import Networking
 import OpenAPIRuntime

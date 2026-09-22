@@ -21,8 +21,9 @@ import ProjectDescription
 ///      │         └──────→ Navigation
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
+///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
-///      ├──→ Domain, DesignSystem, Navigation, Networking
+///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
 /// 실제 구현을 꽂아주는 것은 App 의 역할이다.
@@ -54,6 +55,9 @@ public enum Module: Sendable {
     /// 이동 요청 창구(`Routing`), push 가능한 값의 마커(`Route`), 데모용 단독 `Router`.
     /// FeatureInterface 도 `Route` 를 채택하기 위해 의존한다.
     case navigation
+    /// 진단 타입, 중복 억제 보고기, 기본 로그 싱크. Foundation 과 os 외에는 import 하지 않는다.
+    /// 전송 수단(Crashlytics 등)은 App 이 싱크로 꽂는다.
+    case diagnostics
 
     public var name: String {
         switch self {
@@ -71,6 +75,8 @@ public enum Module: Sendable {
             "Networking"
         case .navigation:
             "Navigation"
+        case .diagnostics:
+            "Diagnostics"
         }
     }
 
@@ -78,7 +84,7 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation:
+        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -112,6 +118,7 @@ public extension Module {
         .designSystem,
         .networking,
         .navigation,
+        .diagnostics,
         .feature("Home"),
     ]
 

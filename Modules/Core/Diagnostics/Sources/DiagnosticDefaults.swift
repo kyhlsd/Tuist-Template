@@ -1,6 +1,6 @@
 //
 //  DiagnosticDefaults.swift
-//  Domain
+//  Diagnostics
 //
 
 import Foundation

@@ -3,6 +3,7 @@
 //  TuistAppTests
 //
 
+import Diagnostics
 import os
 import Testing
 @testable import TuistApp

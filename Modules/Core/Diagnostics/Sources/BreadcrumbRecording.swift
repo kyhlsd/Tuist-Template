@@ -1,6 +1,6 @@
 //
 //  BreadcrumbRecording.swift
-//  Domain
+//  Diagnostics
 //
 
 /// breadcrumb 를 남기는 곳. 구현은 App 이 고른다(로그, Crashlytics 등).

@@ -1,9 +1,9 @@
 //
 //  SpyDiagnosticEventSink.swift
-//  DomainTesting
+//  DiagnosticsTesting
 //
 
-import Domain
+import Diagnostics
 import os
 
 /// 받은 실패를 순서대로 기록하는 `DiagnosticEventSink`.

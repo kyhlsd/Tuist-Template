@@ -1,10 +1,10 @@
 //
 //  DiagnosticReporterTests.swift
-//  DomainTests
+//  DiagnosticsTests
 //
 
-@testable import Domain
-import DomainTesting
+@testable import Diagnostics
+import DiagnosticsTesting
 import Foundation
 import os
 import Testing

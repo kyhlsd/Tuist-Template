@@ -4,6 +4,7 @@
 //
 
 import Data
+import Diagnostics
 import Domain
 import Foundation
 import Networking

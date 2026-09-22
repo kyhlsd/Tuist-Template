@@ -1,9 +1,9 @@
 //
 //  SpyBreadcrumbRecorder.swift
-//  DomainTesting
+//  DiagnosticsTesting
 //
 
-import Domain
+import Diagnostics
 import os
 
 /// 받은 breadcrumb 를 순서대로 기록하는 `BreadcrumbRecording`.

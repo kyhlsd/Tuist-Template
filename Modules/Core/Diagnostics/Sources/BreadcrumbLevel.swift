@@ -1,6 +1,6 @@
 //
 //  BreadcrumbLevel.swift
-//  Domain
+//  Diagnostics
 //
 
 /// breadcrumb 의 중요도.
