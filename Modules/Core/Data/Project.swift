@@ -19,6 +19,7 @@ let project = Project.core(
     testDependencies: [
         .module(.domain),
         .module(.networking), // 테스트 안의 APIProtocol 스텁
+        .testing(.domain), // 보고를 기록하는 SpyDiagnosticReporter
         .external(name: "OpenAPIRuntime"), // 스텁이 만드는 UndocumentedPayload
     ]
 )

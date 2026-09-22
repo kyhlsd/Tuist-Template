@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import HTTPTypes
 
 /// 네트워크 계층의 기본값. 값을 바꿀 때는 여기만 고친다.
 enum NetworkDefaults {
@@ -18,6 +19,13 @@ enum NetworkDefaults {
     static let retryBaseDelay: Duration = .milliseconds(500)
     /// 요청 로그와 토큰 저장소 실패 로그의 category.
     static let logCategory = "Networking"
+    /// 클라이언트 로그와 서버 로그를 잇는 헤더. 서버와 이름이 다르게 정해지면 여기만 바꾼다.
+    static let requestIDField: HTTPField.Name = {
+        guard let name = HTTPField.Name("X-Request-ID") else {
+            preconditionFailure("X-Request-ID 는 올바른 헤더 이름이다")
+        }
+        return name
+    }()
 
     static func makeSessionConfiguration() -> URLSessionConfiguration {
         let configuration = URLSessionConfiguration.default

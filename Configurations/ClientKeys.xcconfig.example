@@ -40,8 +40,3 @@ ANALYTICS_APP_KEY =
 // Google Maps iOS SDK 키. 콘솔에서 iOS 앱 제한 + API 제한 필수.
 
 MAP_SDK_KEY =
-
-// MARK: - Crash reporting
-// Sentry DSN 등. 공개 전제로 설계된 값.
-
-CRASH_REPORTING_DSN =

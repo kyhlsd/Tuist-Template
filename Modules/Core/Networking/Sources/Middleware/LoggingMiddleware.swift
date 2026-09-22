@@ -8,15 +8,22 @@ import HTTPTypes
 import OpenAPIRuntime
 import os
 
-/// 요청마다 method, path, status, 소요 시간을 남긴다.
+/// 요청마다 method, path, status, 소요 시간, request ID 를 남기고 옵저버에 알린다.
 ///
 /// 헤더(토큰)와 바디, 쿼리 문자열은 남기지 않는다. 쿼리에 식별자가 들어갈 수 있어서다.
 struct LoggingMiddleware: ClientMiddleware {
-    private let logger: Logger
+    /// 요청에 request ID 가 없을 때(RequestIDMiddleware 가 바깥에 없을 때) 남기는 값.
+    static let missingRequestID = "-"
 
-    /// - Parameter subsystem: 로그 subsystem. 보통 앱의 번들 ID.
-    init(subsystem: String) {
+    private let logger: Logger
+    private let observer: any NetworkActivityObserving
+
+    /// - Parameters:
+    ///   - subsystem: 로그 subsystem. 보통 앱의 번들 ID.
+    ///   - observer: 요청이 끝날 때마다 로그를 남긴 뒤 요약을 받는다.
+    init(subsystem: String, observer: any NetworkActivityObserving) {
         logger = Logger(subsystem: subsystem, category: NetworkDefaults.logCategory)
+        self.observer = observer
     }
 
     func intercept(
@@ -28,6 +35,9 @@ struct LoggingMiddleware: ClientMiddleware {
     ) async throws -> (HTTPResponse, HTTPBody?) {
         let method = request.method.rawValue
         let path = Self.pathWithoutQuery(request.path)
+        let requestID = request.headerFields[NetworkDefaults.requestIDField]
+        // 무작위 UUID 라 식별 정보가 아니다. 서버 로그와 잇기 위해 공개로 남긴다.
+        let loggedRequestID = requestID ?? Self.missingRequestID
         let clock = ContinuousClock()
         let start = clock.now
 
@@ -35,29 +45,43 @@ struct LoggingMiddleware: ClientMiddleware {
             let (response, responseBody) = try await next(request, body, baseURL)
             let elapsed = Self.milliseconds(start.duration(to: clock.now))
             logger.debug(
-                "\(method, privacy: .public) \(path, privacy: .public) \(response.status.code, privacy: .public) \(elapsed, privacy: .public)ms"
+                "\(method, privacy: .public) \(path, privacy: .public) \(response.status.code, privacy: .public) \(elapsed, privacy: .public)ms rid=\(loggedRequestID, privacy: .public)"
             )
+            observer.requestFinished(NetworkRequestRecord(
+                method: method,
+                path: path,
+                statusCode: response.status.code,
+                failureSummary: nil,
+                isCancellation: false,
+                elapsedMilliseconds: elapsed,
+                requestID: requestID
+            ))
             return (response, responseBody)
         } catch {
             let elapsed = Self.milliseconds(start.duration(to: clock.now))
-            let summary = Self.summary(of: error)
-            logger.error(
-                "\(method, privacy: .public) \(path, privacy: .public) failed \(elapsed, privacy: .public)ms: \(summary, privacy: .public)"
-            )
+            let failure = NetworkFailure.describe(error)
+            let summary = failure.summary
+            if failure.isCancellation {
+                // 취소는 실패가 아니다. error 레벨로 남기면 Console 의 에러 필터를 차지한다.
+                logger.info(
+                    "\(method, privacy: .public) \(path, privacy: .public) cancelled \(elapsed, privacy: .public)ms: \(summary, privacy: .public) rid=\(loggedRequestID, privacy: .public)"
+                )
+            } else {
+                logger.error(
+                    "\(method, privacy: .public) \(path, privacy: .public) failed \(elapsed, privacy: .public)ms: \(summary, privacy: .public) rid=\(loggedRequestID, privacy: .public)"
+                )
+            }
+            observer.requestFinished(NetworkRequestRecord(
+                method: method,
+                path: path,
+                statusCode: nil,
+                failureSummary: summary,
+                isCancellation: failure.isCancellation,
+                elapsedMilliseconds: elapsed,
+                requestID: requestID
+            ))
             throw error
         }
-    }
-
-    /// 에러를 진단용 한 단어로 줄인다.
-    ///
-    /// 가장 바깥 미들웨어라 받는 에러는 늘 `ClientError` 이므로 원래 에러를 꺼낸다.
-    /// 에러 설명에는 쿼리가 붙은 URL 이나 요청 헤더가 들어갈 수 있으므로 타입과 코드만 남긴다.
-    static func summary(of error: any Error) -> String {
-        let underlying = (error as? ClientError)?.underlyingError ?? error
-        if let urlError = underlying as? URLError {
-            return "URLError(\(urlError.code.rawValue))"
-        }
-        return String(describing: type(of: underlying))
     }
 
     private static func pathWithoutQuery(_ path: String?) -> String {

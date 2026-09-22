@@ -11,7 +11,8 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 - **토큰 갱신**: 401 을 받으면 refresh token 으로 한 번 갱신하고 원 요청을 한 번 다시 보낸다. 동시에 401 이 여러 개 와도 refresh 호출은 한 번이다.
 - **세션 만료 알림**: refresh 가 400/401 로 거절되면 토큰을 지우고 `onSessionExpired` 를 한 번 부른다. 네트워크 문제로 refresh 가 실패하면 토큰은 유지한다.
 - **재시도**: 멱등 요청(GET/HEAD/PUT/DELETE)은 연결 끊김·호스트 연결 실패·502/503 에서 최대 2회(0.5초, 1초 뒤) 다시 보낸다. 타임아웃과 504, 취소는 다시 보내지 않는다.
-- **안전한 로그**: `os.Logger` 로 method, path(쿼리 제외), status, 소요 시간만 남긴다. 헤더·토큰·바디는 남기지 않는다.
+- **request ID**: 모든 요청에 `X-Request-ID` 헤더(UUID)가 붙는다. 요청 로그에도 `rid=<id>` 로 같은 값이 찍혀 서버 로그와 이을 수 있다.
+- **안전한 로그**: `os.Logger` 로 method, path(쿼리 제외), status, 소요 시간, request ID 만 남긴다. 그 밖의 헤더·토큰·바디는 남기지 않는다.
 - **Keychain 저장**: 토큰은 `KeychainTokenStore` 가 기기 전용(`AfterFirstUnlockThisDeviceOnly`)으로 저장한다.
 
 ## 구성
@@ -23,8 +24,9 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 | `Sources/APIClientFactory.swift` | 클라이언트 조립. App 만 호출한다 |
 | `Sources/NetworkDefaults.swift` | 타임아웃, 재시도 횟수 등 기본값 |
 | `Sources/Auth/` | `AuthTokens`, `TokenStore`, `KeychainTokenStore`, `TokenRefresher` |
-| `Sources/Middleware/` | `LoggingMiddleware`, `RetryMiddleware`, `AuthMiddleware`, `PublicOperation` |
-| `Testing/Sources/` | `InMemoryTokenStore` (테스트용) |
+| `Sources/Middleware/` | `RequestIDMiddleware`, `LoggingMiddleware`, `RetryMiddleware`, `AuthMiddleware`, `PublicOperation` |
+| `Sources/Diagnostics/` | `NetworkFailure`(에러 요약과 보고 대상 판정), `NetworkActivityObserving`, `NetworkRequestRecord`(요청 요약 알림) |
+| `Testing/Sources/` | `InMemoryTokenStore`, `RecordingNetworkActivityObserver` (테스트용) |
 
 의존 방향: App → Data → Networking. Data 는 `APIProtocol` 에만 의존하고, Feature 는 이 모듈을 모른다.
 
@@ -41,9 +43,10 @@ let client = APIClientFactory.make(
     session: session,
     tokenStore: KeychainTokenStore(service: bundleIdentifier),
     logSubsystem: bundleIdentifier,
+    activityObserver: breadcrumbAdapter,   // 요청이 끝날 때마다 요약을 받는다
     onSessionExpired: { /* 로그인 화면으로 보내기 등 */ }
 )
-let repository = RemoteItemRepository(client: client)
+let repository = RemoteItemRepository(client: client, reporter: diagnosticReporter)
 ```
 
 ### 호출 (Data)
@@ -107,16 +110,18 @@ Scripts/openapi-generate.sh --check
 - Repository 테스트는 `APIProtocol` 을 채택한 스텁을 테스트 파일 안에 두고, 원하는 `Output` 을 돌려준다.
   쓰지 않는 operation 은 `Issue.record` 후 에러를 던지게 둔다.
 - 토큰 저장소가 필요하면 `NetworkingTesting` 의 `InMemoryTokenStore` 를 쓴다. `saveCount`, `clearCount` 로 호출을 확인할 수 있다.
+- 요청 요약 알림을 확인하려면 `NetworkingTesting` 의 `RecordingNetworkActivityObserver` 를 쓴다. `records` 에 받은 순서대로 쌓인다.
 
 ## 동작 세부
 
 ### 미들웨어 순서
 
-`Logging → Retry → Auth → transport` 순서다. 배열 앞쪽이 바깥쪽이다.
+`RequestID → Logging → Retry → Auth → transport` 순서다. 배열 앞쪽이 바깥쪽이다.
 
-- Logging 이 가장 바깥이라 재시도를 포함한 전체 소요 시간이 한 줄로 남는다.
+- RequestID 가 가장 바깥이라 Logging 이 ID 를 보고, 재시도는 같은 ID 를 공유한다. 응답 헤더에도 같은 값을 넣는다(호출부가 `ClientError.response` 에서 읽는다). 이 값은 서버가 돌려준 것이 아닐 수 있다.
+- Logging 이 RequestID 바로 안쪽이라 재시도를 포함한 전체 소요 시간이 한 줄로 남는다. 로그를 남긴 뒤 `NetworkActivityObserving.requestFinished(_:)` 를 동기로 부른다(성공, 실패 모두).
 - Auth 가 Retry 안쪽이라 재시도할 때마다 최신 토큰이 다시 붙는다.
-- refresh 요청은 Logging 만 붙은 별도 클라이언트로 보낸다. Auth 를 다시 타지 않는다.
+- refresh 요청은 RequestID 와 Logging 만 붙은 별도 클라이언트로 보낸다. Auth 를 다시 타지 않는다.
 
 ### 세션 설정 (`NetworkDefaults`)
 

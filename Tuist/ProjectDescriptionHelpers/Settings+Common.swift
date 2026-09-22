@@ -73,7 +73,6 @@ public extension InfoPlist {
             "LOG_LEVEL": "$(LOG_LEVEL)",
             "ANALYTICS_APP_KEY": "$(ANALYTICS_APP_KEY)",
             "MAP_SDK_KEY": "$(MAP_SDK_KEY)",
-            "CRASH_REPORTING_DSN": "$(CRASH_REPORTING_DSN)",
             "UILaunchScreen": [:],
         ]
         if !urlSchemes.isEmpty {
