@@ -3,6 +3,7 @@
 //  DesignSystem
 //
 
+import Foundation
 import Observation
 import os
 
@@ -80,7 +81,14 @@ final class AsyncTaskRunner {
         private enum Diagnostics {
             /// 이보다 오래 끝나지 않으면 취소를 무시하는 `action`으로 본다.
             static let stuckThreshold: Duration = .seconds(10)
-            static let logger = Logger(subsystem: "DesignSystem", category: "AsyncButton")
+            /// 앱 번들 ID를 읽지 못할 때(번들 없는 실행 환경) 쓰는 subsystem.
+            static let fallbackSubsystem = "DesignSystem"
+            static let category = "AsyncButton"
+            /// 모든 로그의 subsystem을 앱 번들 ID로 맞춘다.
+            static let logger = Logger(
+                subsystem: Bundle.main.bundleIdentifier ?? fallbackSubsystem,
+                category: category
+            )
         }
     #endif
 }
