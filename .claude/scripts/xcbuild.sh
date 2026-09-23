@@ -78,9 +78,15 @@ run_xcodebuild() {
     # --disable-logging: 매 실행마다 찍히는 5줄짜리 버전 배너를 없앤다.
     # --disable-colored-output: ANSI 이스케이프는 터미널 밖(= 모델 컨텍스트)에서 순수 낭비다.
     # 성공 빌드 출력이 90바이트에서 16바이트로 줄어든다. 실패 시에는 에러 줄마다 붙던 색상 코드가 빠진다.
+    local beautify_flags=(--quiet --disable-logging --disable-colored-output)
+    # GitHub Actions 에서는 컴파일 에러·테스트 실패를 PR 파일 뷰의 인라인 주석(::error)으로 바꾼다.
+    # xcbeautify 는 러너 이미지의 것을 쓰므로, --renderer 를 모르는 버전이면 붙이지 않는다(모르는 옵션이면 즉시 종료해 빌드가 실패한다).
+    if [ "${GITHUB_ACTIONS:-}" = "true" ] && xcbeautify --help 2>/dev/null | grep -- '--renderer' >/dev/null; then
+      beautify_flags+=(--renderer github-actions)
+    fi
     xcodebuild "$action" -scheme "$SCHEME" "${PROJECT_FLAGS[@]+"${PROJECT_FLAGS[@]}"}" \
       -destination "id=$udid" "$@" 2>&1 \
-      | xcbeautify --quiet --disable-logging --disable-colored-output
+      | xcbeautify "${beautify_flags[@]}"
   else
     xcodebuild "$action" -scheme "$SCHEME" "${PROJECT_FLAGS[@]+"${PROJECT_FLAGS[@]}"}" \
       -destination "id=$udid" "$@"
