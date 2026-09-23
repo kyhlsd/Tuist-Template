@@ -112,8 +112,10 @@ Scripts/openapi-generate.sh --check
 ```
 
 - **테스트가 실패하면** 실행 요약 페이지의 Artifacts 에 `TestResults.xcresult` 가 올라간다(7일 보관).
-  내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다. 컴파일 에러와 테스트 실패는 PR 파일 뷰에 인라인 주석으로도 달린다
-  (러너 이미지의 xcbeautify 를 쓴다. 이미지에 없거나 `--renderer` 를 모르는 버전이면 주석만 빠지고 잡은 그대로 돈다).
+  내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다.
+- **컴파일 에러·경고**는 PR 파일 뷰에 인라인 주석으로도 달린다. **테스트 실패**는 실행 요약 페이지의
+  Annotations 에만 보인다. Swift Testing 이 경로 없이 파일 이름만 내보내서 PR 의 파일에 붙지 않는다.
+  (러너 이미지의 xcbeautify 를 쓴다. 이미지에 없거나 `--renderer` 를 모르는 버전이면 주석만 빠지고 잡은 그대로 돈다.)
 - **러너**는 기본 `xcode-27`(Xcode 27 을 주는 유일한 GitHub 호스티드 러너, preview)이다.
   저장소 변수 `MACOS_RUNNER` 를 만들면 코드 수정 없이 다른 라벨(GA 라벨, 자체 호스팅 등)로 바꿀 수 있다.
 - **Xcode 메이저를 올릴 때**는 `Tuist.swift` 의 `compatibleXcodeVersions` 와 `ci.yml` 의 기본 러너 라벨
