@@ -91,6 +91,40 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 | `Home` | HomeDemo | HomeTests |
 | `DesignSystem` | DesignSystemDemo (카탈로그) | DesignSystemTests |
 
+## CI
+
+`.github/workflows/ci.yml` 이 PR 과 `main` 푸시마다 두 잡을 병렬로 돌린다.
+Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
+
+| 잡 | 검사 |
+| --- | --- |
+| `lint` | swiftformat 포맷, SwiftLint(error 만 실패), OpenAPI 생성물이 명세와 일치하는지 |
+| `build-test` | `tuist install` → `tuist generate` → 모든 모듈 테스트(Debug) → Release 빌드 |
+
+로컬에서 같은 검사를 재현하려면 저장소 루트에서 다음을 돌린다.
+
+```bash
+mise exec -- swiftformat --lint .
+mise exec -- swiftlint lint --quiet
+Scripts/openapi-generate.sh --check
+./.claude/scripts/xcbuild.sh test
+./.claude/scripts/xcbuild.sh build -configuration Release
+```
+
+- **테스트가 실패하면** 실행 요약 페이지의 Artifacts 에 `TestResults.xcresult` 가 올라간다(7일 보관).
+  내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다. 컴파일 에러와 테스트 실패는 PR 파일 뷰에 인라인 주석으로도 달린다
+  (러너 이미지의 xcbeautify 를 쓴다. 이미지에 없거나 `--renderer` 를 모르는 버전이면 주석만 빠지고 잡은 그대로 돈다).
+- **러너**는 기본 `xcode-27`(Xcode 27 을 주는 유일한 GitHub 호스티드 러너, preview)이다.
+  저장소 변수 `MACOS_RUNNER` 를 만들면 코드 수정 없이 다른 라벨(GA 라벨, 자체 호스팅 등)로 바꿀 수 있다.
+- **Xcode 메이저를 올릴 때**는 `Tuist.swift` 의 `compatibleXcodeVersions` 와 `ci.yml` 의 기본 러너 라벨
+  (또는 `MACOS_RUNNER`)을 함께 바꾼다. 둘이 어긋나면 `tuist generate` 가 멈춘다.
+- **브랜치 보호**에서 `lint`, `build-test` 를 required status check 로 거는 것을 권장한다.
+  워크플로를 지우거나 잡 이름을 바꾸기 전에는 이 설정을 먼저 풀어야 PR 이 막히지 않는다.
+- macOS 러너는 분당 과금 배수가 크다(비공개 저장소). 같은 PR 에 새 커밋이 오면 이전 실행은 취소된다.
+  `main` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
+- 외부 액션은 커밋 SHA 로 고정돼 있다(뒤에 버전 주석). Dependabot(`.github/dependabot.yml`)이 월 1회
+  모든 액션을 PR 하나로 묶어 SHA 와 주석을 함께 올린다. 손으로 올릴 때도 둘을 함께 바꾼다.
+
 ## 모듈 추가
 
 1. `Module.swift` 에 case 를 추가한다. (피처는 `.feature("Name")` 을 쓰면 되므로 추가할 필요 없다)
@@ -118,6 +152,7 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 - `.claude/scripts/xcbuild.sh`: `SCHEME` 과 `PROJECT_FLAGS` 를 `<appName>-Workspace`, `<appName>.xcworkspace` 로
 - `App/Tests/`: `@testable import TuistApp` 의 모듈 이름
 - `CLAUDE.md`: 개요의 앱 이름
+- `.github/workflows/ci.yml`: 바꿀 곳 없음. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
 
 앱 표시 이름(`APP_DISPLAY_NAME`)은 xcconfig 가 `$(APP_NAME)` 으로 `appName` 을 따라간다.
 
