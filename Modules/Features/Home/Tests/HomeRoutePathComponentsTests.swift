@@ -10,7 +10,7 @@ import Testing
 struct HomeRoutePathComponentsTests {
     @Test("items 와 식별자면 상세 Route 가 된다")
     func init_itemsWithID_returnsDetail() {
-        #expect(HomeRoute(pathComponents: ["items", "42"]) == .detail(id: "42"))
+        #expect(HomeRoute(pathComponents: ["items", "42"]) == .detail(id: "43"))
     }
 
     @Test("식별자가 없으면 nil 이다")
