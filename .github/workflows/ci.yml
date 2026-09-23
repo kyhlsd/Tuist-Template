@@ -1,4 +1,4 @@
-# PR 과 main 푸시마다 lint 와 build-test 를 병렬로 돌린다.
+# PR 과 main 푸시마다 lint, build-test, release-build 세 잡을 병렬로 돌린다.
 #
 # 러너: 저장소 변수 MACOS_RUNNER 가 있으면 그 라벨을, 없으면 xcode-27 을 쓴다.
 #   Xcode 27 을 주는 GitHub 호스티드 러너는 xcode-27(preview) 뿐이다.
@@ -53,36 +53,10 @@ jobs:
       - name: 체크아웃
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # lint 와 같은 mise 캐시 키를 쓰므로 mise.toml 전체를 설치한다.
-      - name: 도구 설치 (mise)
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
-
-      - name: Xcode 버전
-        run: xcodebuild -version
-
-      # 복원과 저장을 나눈다. actions/cache 의 자동 저장은 잡이 성공해야만 돌아서,
-      # 테스트가 깨지는 PR 에서는 매번 의존성을 처음부터 받게 된다.
-      - name: SPM 의존성 캐시 복원
-        id: spm-cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: Tuist/.build
-          key: tuist-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}
-          restore-keys: |
-            tuist-build-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: 의존성 설치 (tuist install)
-        run: tuist install
-
-      - name: SPM 의존성 캐시 저장
-        if: steps.spm-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: Tuist/.build
-          key: ${{ steps.spm-cache.outputs.cache-primary-key }}
-
-      - name: 프로젝트 생성 (tuist generate)
-        run: tuist generate --no-open
+      # 도구 설치, SPM 의존성, 프로젝트 생성. 내용은 .github/actions/setup/action.yml 에 있다.
+      - name: 셋업
+        id: setup
+        uses: ./.github/actions/setup
 
       # 멈춘 테스트는 xcodebuild 가 테스트 타임아웃으로 끊는다. 그래도 끝나지 않으면 스텝 타임아웃이 끊는다.
       # 잡 타임아웃은 잡을 취소(cancelled)로 끝내 결과 업로드가 돌지 않지만,
@@ -100,12 +74,7 @@ jobs:
           -test-timeouts-enabled YES
           -collect-test-diagnostics never
 
-      # Release 빌드를 테스트 뒤에 둔다. 테스트가 더 자주 깨지고,
-      # 실패하면 .xcresult 번들을 먼저 확보해야 하기 때문이다.
-      - name: Release 빌드
-        run: ./.claude/scripts/xcbuild.sh build -configuration Release
-
-      # 테스트 스텝이 실패했을 때만 올린다(Release 빌드만 깨졌을 때는 통과한 번들이라 올리지 않는다).
+      # 테스트 스텝이 실패했을 때만 올린다.
       # overwrite: 재실행이 같은 이름으로 다시 올려도 충돌하지 않게 한다.
       - name: 테스트 결과 업로드
         if: failure() && steps.test.outcome == 'failure'
@@ -129,3 +98,19 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
           overwrite: true
+
+  # Release 에서만 나는 컴파일 에러(#if DEBUG 분기 등)를 PR 에서 잡는다.
+  # build-test 와 병렬로 돌려 PR 의 크리티컬 패스에서 뺀다.
+  release-build:
+    runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 30
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 셋업
+        id: setup
+        uses: ./.github/actions/setup
+
+      - name: Release 빌드
+        run: ./.claude/scripts/xcbuild.sh build -configuration Release
