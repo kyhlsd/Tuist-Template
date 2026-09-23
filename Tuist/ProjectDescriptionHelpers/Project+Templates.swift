@@ -176,12 +176,14 @@ public extension Project {
     /// - Parameters:
     ///   - targetSettings: 앱 타깃에만 적용할 빌드 설정. 공통 xcconfig 에 넣으면 모든 모듈로 퍼지는 값을 여기 둔다.
     ///   - scripts: 앱 타깃의 빌드 스크립트.
+    ///   - additionalInfoPlist: 앱 타깃에만 넣을 Info.plist 키. 데모 앱에는 들어가지 않는다.
     static func app(
         name: String,
         dependencies: [TargetDependency] = [],
         testDependencies: [TargetDependency] = [],
         targetSettings: SettingsDictionary = [:],
-        scripts: [TargetScript] = []
+        scripts: [TargetScript] = [],
+        additionalInfoPlist: [String: Plist.Value] = [:]
     ) -> Project {
         // 테스트 타깃(testDependencies)은 제한하지 않는다.
         Module.validateAppDependencies(dependencies, targetName: name)
@@ -196,7 +198,7 @@ public extension Project {
                     product: .app,
                     bundleId: "\(AppConstants.bundleID(for: name))$(BUNDLE_ID_SUFFIX)",
                     deploymentTargets: AppConstants.deploymentTargets,
-                    infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme]),
+                    infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme], additionalEntries: additionalInfoPlist),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
                     scripts: scripts,

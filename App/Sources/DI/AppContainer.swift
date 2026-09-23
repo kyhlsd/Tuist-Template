@@ -9,16 +9,20 @@ import Domain
 import Foundation
 import Networking
 import os
+import Tracking
 
 /// 앱의 조립 지점(composition root).
 ///
 /// 구현 타입(`APIClientFactory`, `KeychainTokenStore`, `RemoteItemRepository`,
-/// `DiagnosticReporter`, `CrashlyticsDiagnosticSink`, `LoggerDiagnosticSink`, `NetworkBreadcrumbAdapter`)을
+/// `DiagnosticReporter`, `CrashlyticsDiagnosticSink`, `LoggerDiagnosticSink`, `NetworkBreadcrumbAdapter`,
+/// `FirebaseEventTracker`, `LoggerEventTracker`)을
 /// 아는 곳은 여기뿐이다.
 /// 피처는 Domain 프로토콜만 받는다. 피처별 화면 생성은 `AppContainer+<Feature>.swift` 에 둔다.
 @MainActor
 final class AppContainer {
     let itemRepository: any ItemRepository
+    /// 피처에 넘길 이벤트 기록기. 앱 전체에서 하나를 쓴다.
+    let eventTracker: any EventTracking
 
     /// 앱 수명 동안 하나만 둔다. 설정(타임아웃 등)은 `APIClientFactory.makeSession()` 이 정한다.
     private let session: URLSession
@@ -37,6 +41,10 @@ final class AppContainer {
         )
         // 생성 클라이언트를 부르는 Repository 가 함께 쓴다. 같은 실패의 중복 억제를 앱 전체에서 공유한다.
         let diagnosticReporter = DiagnosticReporter(sink: diagnosticSink)
+        eventTracker = Self.makeEventTracker(
+            firebaseDecision: firebaseDecision,
+            logger: Logger(subsystem: bundleIdentifier, category: LogCategory.tracking)
+        )
 
         session = APIClientFactory.makeSession()
         let logger = Logger(subsystem: bundleIdentifier, category: LogCategory.session)
@@ -71,9 +79,22 @@ final class AppContainer {
         }
         return LoggerDiagnosticSink(logger: logger)
     }
+
+    /// Firebase 를 초기화했으면 Analytics 로, 아니면 로그로만 남긴다.
+    ///
+    /// 건너뛴 이유는 `makeDiagnosticSink` 가 이미 남기므로 여기서는 남기지 않는다(`AppContainerEventTrackerTests`).
+    static func makeEventTracker(firebaseDecision: FirebaseBootstrap.Decision, logger: Logger) -> any EventTracking {
+        switch firebaseDecision {
+        case .configure:
+            FirebaseEventTracker()
+        case .skipDebug, .skipMissingConfigFile:
+            LoggerEventTracker(logger: logger)
+        }
+    }
 }
 
 private enum LogCategory {
     static let session = "Session"
     static let diagnostics = "Diagnostics"
+    static let tracking = "Tracking"
 }
