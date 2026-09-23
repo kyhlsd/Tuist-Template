@@ -41,6 +41,11 @@ public extension Project {
         let interfaceName = "\(name)Interface"
         let testingName = "\(name)Testing"
 
+        let supportDependencies = testDependencies + testingDependencies + demoDependencies
+        Module.validateFeatureDependencies(
+            name: name, interface: interfaceDependencies, implementation: dependencies, support: supportDependencies
+        )
+
         var targets: [Target] = [
             .module(
                 name: interfaceName,
@@ -119,6 +124,15 @@ public extension Project {
     ) -> Project {
         Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
         let testingName = "\(name)Testing"
+
+        guard let module = Module.all.first(where: { $0.name == name }) else {
+            preconditionFailure("validateRegistration 이 \(name) 의 등록을 보장한다.")
+        }
+        Module.validateModuleDependencies(
+            of: module,
+            dependencies: dependencies,
+            supportDependencies: testDependencies + testingDependencies + demoDependencies
+        )
         let testingTarget: [TargetDependency] = hasTestingSupport ? [.target(name: testingName)] : []
 
         var targets: [Target] = [
@@ -169,7 +183,9 @@ public extension Project {
         targetSettings: SettingsDictionary = [:],
         scripts: [TargetScript] = []
     ) -> Project {
-        Project(
+        // 테스트 타깃(testDependencies)은 제한하지 않는다.
+        Module.validateAppDependencies(dependencies, targetName: name)
+        return Project(
             name: name,
             organizationName: AppConstants.organizationName,
             settings: .common,

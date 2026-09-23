@@ -135,7 +135,7 @@ Scripts/openapi-generate.sh --check
 
 ```bash
 Scripts/new-module.sh feature Profile --demo
-Scripts/new-module.sh core Analytics --testing
+Scripts/new-module.sh core Payments --testing
 mise exec -- tuist generate
 ```
 
@@ -152,7 +152,10 @@ mise exec -- tuist generate
 
 - 피처는 `App/Project.swift` 의 `dependencies` 에 `.module(.feature("Name"))` 와
   `.module(.featureInterface("Name"))` 를 추가하고, App 이 `<Name>Route` 를 화면으로 바꾸도록 연결한다.
-- 새 Core 모듈은 `.core("Name")` 으로 참조한다(`.module(.core("Analytics"))`). 기존 Core 모듈은 이름 있는 case 그대로다.
+- 새 Core 모듈은 `.core("Name")` 으로 참조한다(`.module(.core("Payments"))`). 기존 Core 모듈은 이름 있는 case 그대로다.
+- 새 Core 모듈을 다른 모듈이 쓰거나, 이 모듈(테스트·데모 포함)이 다른 모듈을 쓰면
+  `Module.swift` 의 `mayDepend(on:)` 에 `(.feature, .core("Payments"))`, `(.core("Payments"), .domain)` 같은 규칙을 더한다.
+  없으면 generate 가 문구 없이 멈춘다. App 은 규칙 없이 의존할 수 있다.
 - `Project+Templates.swift` 나 DesignSystem API 를 바꾸면 템플릿(`Tuist/Templates/`)이 따라가지 못할 수 있다.
   바꾼 뒤 `new-module.sh` 로 한 번 만들어 generate·빌드해 보고 지운다.
 
