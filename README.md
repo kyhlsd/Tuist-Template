@@ -180,12 +180,32 @@ mise exec -- tuist generate
 
 ## 새 앱으로 복제할 때 바꿀 곳
 
-- `Tuist/ProjectDescriptionHelpers/AppConstants.swift`: `appName`, `bundleIDPrefix`, `organizationName`
-- `.claude/scripts/xcbuild.sh`: `SCHEME` 과 `PROJECT_FLAGS` 를 `<appName>-Workspace`, `<appName>.xcworkspace` 로
-- `App/Tests/`: `@testable import TuistApp` 의 모듈 이름
-- `CLAUDE.md`: 개요의 앱 이름
-- `.github/workflows/ci.yml`: 바꿀 곳 없음. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
+깨끗한 작업 트리에서 실행한다.
 
+```bash
+Scripts/rename.sh MyApp com.example "Example Inc"
+mise exec -- tuist install && mise exec -- tuist generate
+```
+
+형식은 `Scripts/rename.sh <NewName> <bundlePrefix> [<organizationName>]` 이다. 조직 이름을 생략하면 그대로 둔다.
+옛 값은 `AppConstants.swift` 에서 읽으므로 여러 번 실행해도 된다.
+
+- git 이 추적하는 텍스트 파일 전부에서 옛 앱 이름, URL 스킴(앱 이름 소문자), 번들 ID 접두사, 조직 이름을
+  대소문자를 구분해 부분 문자열로 치환한다. 헤더 주석, `@testable import`, `xcbuild.sh` 의 스킴,
+  `CLAUDE.md` 도 포함된다. `docs/plans/`(당시 기록)와 `*.generated.swift` 는 건드리지 않는다.
+- 경로에 앱 이름이 들어간 파일(`App/Sources/<앱 이름>App.swift`, `App/Tests/<앱 이름>Tests.swift`)은 `git mv` 한다.
+- 부분 문자열 치환이라, 옛 이름이 흔한 단어라면 다른 단어 안의 것도 바뀐다. 결과는 `git diff` 로 검토하고,
+  되돌리려면 `git reset --hard` 한다.
+
+스크립트가 하지 않는 일:
+
+- 옛 워크스페이스(`<옛 이름>.xcworkspace`) 삭제
+- Firebase `GoogleService-Info.plist` 를 새 번들 ID 로 다시 받기
+- `Configurations/ClientKeys.xcconfig`
+- App Store Connect·개발자 계정의 번들 ID 등록
+- 저장소 폴더 이름
+
+`.github/workflows/ci.yml` 은 바꿀 곳이 없다. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
 앱 표시 이름(`APP_DISPLAY_NAME`)은 xcconfig 가 `$(APP_NAME)` 으로 `appName` 을 따라간다.
 
 ## 코드 스타일
