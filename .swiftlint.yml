@@ -13,6 +13,10 @@ excluded:
   - "**/*+CoreDataProperties.swift"   # Core Data 자동 생성 파일
   - "**/Derived"                       # Tuist 생성물(번들·에셋 접근자, Info.plist)
   - Tuist/.build                       # tuist install 로 받은 외부 패키지
+  # Claude Code 워크트리(.claude/worktrees/*)는 저장소 전체의 사본이다. 각 사본의 Tuist/.build 는
+  # 위 루트 기준 경로와 맞지 않아, checkouts 심볼릭 링크를 따라 ~/.cache 의 외부 패키지까지 검사된다.
+  # 추적되는 Swift 파일은 없다. SwiftFormat 은 숨김 폴더를 원래 건너뛴다.
+  - .claude
 
 disabled_rules:
   - todo                                  # TODO/FIXME 주석을 경고로 띄우지 않음
