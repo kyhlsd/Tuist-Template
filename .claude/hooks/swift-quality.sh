@@ -31,7 +31,10 @@ if command -v swiftlint >/dev/null 2>&1; then
   # 하위 폴더의 중첩 설정(예: 토큰 폴더의 no_magic_numbers 해제)이 함께 적용된다.
   # --config 를 주면 중첩 설정이 무시된다.
   # 경로를 직접 넘기면 excluded 가 무시되므로 --force-exclude 로 다시 적용한다.
-  output=$(cd "$project_dir" && swiftlint lint --quiet --force-exclude "$file" 2>/dev/null || true)
+  # 루트는 파일이 속한 작업 트리다. 메인 루트에서 .claude/worktrees/* 의 파일을 넘기면
+  # excluded 의 .claude 에 걸려 검사 없이 통과한다.
+  lint_root=$(git -C "$(dirname "$file")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$project_dir")
+  output=$(cd "$lint_root" && swiftlint lint --quiet --force-exclude "$file" 2>/dev/null || true)
   errors=$(printf '%s\n' "$output" | grep -F ': error:' || true)
   if [ -n "$errors" ]; then
     problems="${problems:+$problems
