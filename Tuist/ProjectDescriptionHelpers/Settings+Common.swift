@@ -61,9 +61,11 @@ public extension InfoPlist {
     ///   데모 앱은 "HomeDemo" 처럼 자기 이름을 쓴다. 같은 이름이면 기기에서 구분할 수 없다.
     /// - Parameter urlSchemes: 딥링크로 받을 커스텀 URL 스킴. 비어 있으면 `CFBundleURLTypes` 를 넣지 않는다.
     ///   앱만 넘긴다. 데모 앱까지 같은 스킴을 등록하면 어느 앱이 링크를 받을지 알 수 없다.
+    /// - Parameter additionalEntries: 이 타깃에만 넣을 키. 공통 키와 겹치면 이 값이 이긴다.
     static func runnable(
         displayName: String = "$(APP_DISPLAY_NAME)",
-        urlSchemes: [String] = []
+        urlSchemes: [String] = [],
+        additionalEntries: [String: Plist.Value] = [:]
     ) -> InfoPlist {
         var plist: [String: Plist.Value] = [
             "CFBundleDisplayName": .string(displayName),
@@ -83,6 +85,7 @@ public extension InfoPlist {
                 ],
             ]
         }
+        plist.merge(additionalEntries) { _, additional in additional }
         return .extendingDefault(with: plist)
     }
 }

@@ -21,9 +21,12 @@ let project = Project.app(
         .module(.designSystem),
         .module(.navigation),
         .module(.diagnostics),
-        // Crashlytics 전송 어댑터(App/Sources/Diagnostics)만 쓴다. 모듈은 Firebase 를 모른다.
+        .module(.tracking),
+        // Firebase 는 App 의 어댑터(App/Sources/Diagnostics, Tracking)만 쓴다. 모듈은 Firebase 를 모른다.
         .external(name: "FirebaseCrashlytics"),
         .external(name: "FirebaseCore"),
+        // IDFA 를 수집하지 않는 제품(GoogleAppMeasurementCore). IdentitySupport 는 넣지 않는다.
+        .external(name: "FirebaseAnalyticsCore"),
     ],
     targetSettings: [
         // Firebase 정적 라이브러리의 Objective-C 카테고리를 링크한다.
@@ -41,5 +44,9 @@ let project = Project.app(
             ],
             basedOnDependencyAnalysis: false
         ),
+    ],
+    additionalInfoPlist: [
+        // Analytics 가 광고 네트워크(SKAdNetwork)에 앱을 등록하지 않게 한다. 광고 기여 측정을 쓰지 않는다.
+        "GOOGLE_ANALYTICS_REGISTRATION_WITH_AD_NETWORK_ENABLED": false,
     ]
 )
