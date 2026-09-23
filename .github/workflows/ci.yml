@@ -116,3 +116,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
           overwrite: true
+
+      # 스냅샷 실패 이미지는 번들에도 첨부로 들어가지만, xcresult 를 열지 않고 PNG 로 바로 보도록 따로 올린다.
+      # 위 스텝과 합치지 않는다. 경로가 여럿이면 공통 조상이 루트가 되어 xcresult 번들이 _temp/ 아래로 밀려난다.
+      # 경로는 SnapshotSupport.swift 의 recordFailure 가 쓰는 기본 위치(테스트 소스 옆)다.
+      - name: 스냅샷 실패 이미지 업로드
+        if: failure() && steps.test.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SnapshotFailures
+          path: Modules/**/__Snapshots__/__Failures__/
+          if-no-files-found: ignore
+          retention-days: 7
+          overwrite: true
