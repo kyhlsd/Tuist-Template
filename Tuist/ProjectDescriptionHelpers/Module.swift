@@ -18,12 +18,14 @@ import ProjectDescription
 ///      │         │                 └──────→ Navigation (Route 프로토콜)
 ///      │         ├──────→ Domain
 ///      │         ├──────→ DesignSystem
-///      │         └──────→ Navigation
+///      │         ├──────→ Navigation
+///      │         └──────→ Tracking
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
+///      └──→ Tracking   (전송 구현을 꽂기 위해)
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
 /// 실제 구현을 꽂아주는 것은 App 의 역할이다.
@@ -60,6 +62,9 @@ public enum Module: Sendable {
     /// 진단 타입, 중복 억제 보고기, 기본 로그 싱크. Foundation 과 os 외에는 import 하지 않는다.
     /// 전송 수단(Crashlytics 등)은 App 이 싱크로 꽂는다.
     case diagnostics
+    /// 이벤트 기록 프로토콜과 기본 로그 기록기. Foundation 과 os 외에는 import 하지 않는다.
+    /// 전송 수단(Firebase Analytics 등)은 App 이 꽂는다.
+    case tracking
     /// 이름으로 가리키는 Core 모듈(`Modules/Core/<name>`).
     ///
     /// 새 Core 모듈은 이 case 로 추가한다(`Scripts/new-module.sh core <Name>`).
@@ -87,6 +92,8 @@ public enum Module: Sendable {
             "Navigation"
         case .diagnostics:
             "Diagnostics"
+        case .tracking:
+            "Tracking"
         case let .core(name):
             name
         }
@@ -96,7 +103,7 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .core:
+        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .tracking, .core:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -131,6 +138,7 @@ public extension Module {
         .networking,
         .navigation,
         .diagnostics,
+        .tracking,
         .feature("Home"),
         // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
@@ -177,7 +185,8 @@ public extension Module {
         case (.feature, .featureInterface),
              (.feature, .domain),
              (.feature, .designSystem),
-             (.feature, .navigation):
+             (.feature, .navigation),
+             (.feature, .tracking):
             true
         case (.featureInterface, .domain),
              (.featureInterface, .navigation):
