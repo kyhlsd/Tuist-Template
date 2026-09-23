@@ -1,0 +1,16 @@
+//
+//  {{ name }}Tests.swift
+//  {{ name }}Tests
+//
+
+import {{ name }}Interface
+import Testing
+
+/// 테스트 타깃이 비지 않게 스캐폴드가 만든 자리표시 테스트다. 실제 동작을 테스트하면 지운다.
+@Suite("{{ name }}")
+struct {{ name }}Tests {
+    @Test("같은 Route 는 같다")
+    func route_sameCase_isEqual() {
+        #expect({{ name }}Route.main == .main)
+    }
+}

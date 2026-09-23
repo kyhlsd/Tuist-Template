@@ -1,0 +1,16 @@
+//
+//  {{ name }}View.swift
+//  {{ name }}
+//
+
+import DesignSystem
+import SwiftUI
+
+/// {{ name }} 의 첫 화면. 스캐폴드가 만든 자리표시 화면이다.
+public struct {{ name }}View: View {
+    public init() {}
+
+    public var body: some View {
+        AppStatusView.empty(title: String(localized: "{{ name }}"{% if resources == "true" %}, bundle: .module{% endif %}))
+    }
+}

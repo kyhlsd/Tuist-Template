@@ -1,0 +1,33 @@
+//
+//  {{ name }}DemoApp.swift
+//  {{ name }}Demo
+//
+//  {{ name }} 만 띄우는 데모 앱. 앱의 RootView 가 하는 일(스택 생성, Route → 화면 매핑)을
+//  {{ name }} 범위에서만 흉내 낸다.
+//
+
+import DesignSystem
+import {{ name }}
+import {{ name }}Interface
+import Navigation
+import SwiftUI
+
+@main
+struct {{ name }}DemoApp: App {
+    @State private var router = Router()
+
+    var body: some Scene {
+        WindowGroup {
+            NavigationStack(path: $router.path) {
+                {{ name }}View()
+                    .navigationDestination(for: {{ name }}Route.self) { route in
+                        switch route {
+                        case .main:
+                            {{ name }}View()
+                        }
+                    }
+            }
+            .theme(.standard)
+        }
+    }
+}

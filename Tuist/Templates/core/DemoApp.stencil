@@ -1,0 +1,18 @@
+//
+//  {{ name }}DemoApp.swift
+//  {{ name }}Demo
+//
+//  {{ name }} 만 띄우는 데모 앱. 스캐폴드가 만든 자리표시 화면이다.
+//
+
+import {{ name }}
+import SwiftUI
+
+@main
+struct {{ name }}DemoApp: App {
+    var body: some Scene {
+        WindowGroup {
+            Text(String(describing: {{ name }}Placeholder()))
+        }
+    }
+}
