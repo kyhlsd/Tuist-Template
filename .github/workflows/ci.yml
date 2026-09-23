@@ -71,10 +71,10 @@ jobs:
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/cas
-          key: xcode-cas-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-${{ github.sha }}
+          key: xcode-cas-test-cov-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-${{ github.sha }}
           restore-keys: |
-            xcode-cas-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-
-            ${{ github.event_name == 'pull_request' && format('xcode-cas-{0}-{1}-{2}-{3}-{4}-{5}-', 'test', runner.os, runner.arch, steps.setup.outputs.xcode-build, steps.setup.outputs.cache-prev-week, hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml')) || '' }}
+            xcode-cas-test-cov-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-
+            ${{ github.event_name == 'pull_request' && format('xcode-cas-{0}-{1}-{2}-{3}-{4}-{5}-', 'test-cov', runner.os, runner.arch, steps.setup.outputs.xcode-build, steps.setup.outputs.cache-prev-week, hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml')) || '' }}
 
       # 멈춘 테스트는 xcodebuild 가 테스트 타임아웃으로 끊는다. 그래도 끝나지 않으면 스텝 타임아웃이 끊는다.
       # 잡 타임아웃은 잡을 취소(cancelled)로 끝내 결과 업로드가 돌지 않지만,
@@ -92,8 +92,14 @@ jobs:
           -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult"
           -test-timeouts-enabled YES
           -collect-test-diagnostics never
+          -enableCodeCoverage YES
           COMPILATION_CACHE_ENABLE_CACHING=YES
           COMPILATION_CACHE_CAS_PATH="$RUNNER_TEMP/cas"
+
+      # 대상은 스킴의 codeCoverageTargets(앱과 모듈)다. 게이트는 없다. 표가 조용히 빠지지 않도록 실패하면 잡도 실패한다.
+      - name: 커버리지 요약
+        if: steps.test.outcome == 'success'
+        run: Scripts/coverage-summary.sh "$RUNNER_TEMP/TestResults.xcresult" >> "$GITHUB_STEP_SUMMARY"
 
       # 테스트 스텝이 실패했을 때만 올린다.
       # overwrite: 재실행이 같은 이름으로 다시 올려도 충돌하지 않게 한다.
