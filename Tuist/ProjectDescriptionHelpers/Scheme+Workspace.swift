@@ -14,6 +14,7 @@ public extension Scheme {
     ///
     ///   빌드 액션   앱, 모든 모듈 구현 타깃, 데모 앱. 외부 패키지는 필요한 만큼 암시적으로 빌드된다.
     ///   테스트 액션 앱과 모든 모듈의 테스트 타깃. 테스트할 때만 빌드된다.
+    ///   커버리지 대상 앱과 모듈 구현 타깃. 수집은 CI 가 `-enableCodeCoverage YES` 로 켠다.
     ///
     /// 모듈 목록은 `Module.all` / `Module.withDemoApp` 에서 읽는다.
     ///
@@ -29,7 +30,10 @@ public extension Scheme {
         return .scheme(
             name: "\(AppConstants.appName)-Workspace",
             buildAction: .buildAction(targets: [app] + modules + demoApps),
-            testAction: .targets(tests.map { .testableTarget(target: $0) }),
+            testAction: .targets(
+                tests.map { .testableTarget(target: $0) },
+                options: .options(coverage: false, codeCoverageTargets: [app] + modules)
+            ),
             runAction: .runAction(executable: app),
             archiveAction: .archiveAction(configuration: .release),
             profileAction: .profileAction(executable: app),
