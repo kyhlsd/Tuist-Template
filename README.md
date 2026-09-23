@@ -133,12 +133,38 @@ Scripts/openapi-generate.sh --check
 
 ## 모듈 추가
 
-1. `Module.swift` 에 case 를 추가한다. (피처는 `.feature("Name")` 을 쓰면 되므로 추가할 필요 없다)
-   그리고 `Module.all` 에 등록한다. 데모 앱을 켜면 `Module.withDemoApp` 에도 넣는다.
+```bash
+Scripts/new-module.sh feature Profile --demo
+Scripts/new-module.sh core Analytics --testing
+mise exec -- tuist generate
+```
+
+형식은 `Scripts/new-module.sh <feature|core> <Name> [--demo] [--testing] [--resources]` 이다.
+이름은 대문자로 시작하는 영숫자(UpperCamel)다.
+
+| 옵션 | 만드는 것 | `Project.swift` |
+| --- | --- | --- |
+| `--demo` | `Demo/Sources/<Name>DemoApp.swift`, `Module.withDemoApp` 등록 | `hasDemoApp: true` |
+| `--testing` | `Testing/Sources/` 의 픽스처 | `hasTestingSupport: true` |
+| `--resources` | `Resources/Localizable.xcstrings` | `hasResources: true` |
+
+직접 하는 일:
+
+- 피처는 `App/Project.swift` 의 `dependencies` 에 `.module(.feature("Name"))` 와
+  `.module(.featureInterface("Name"))` 를 추가하고, App 이 `<Name>Route` 를 화면으로 바꾸도록 연결한다.
+- 새 Core 모듈은 `.core("Name")` 으로 참조한다(`.module(.core("Analytics"))`). 기존 Core 모듈은 이름 있는 case 그대로다.
+- `Project+Templates.swift` 나 DesignSystem API 를 바꾸면 템플릿(`Tuist/Templates/`)이 따라가지 못할 수 있다.
+  바꾼 뒤 `new-module.sh` 로 한 번 만들어 generate·빌드해 보고 지운다.
+
+스크립트가 하는 일(손으로 할 때도 같다):
+
+1. `Tuist/Templates/<feature|core>` 템플릿으로 `Modules/Features/<Name>/` 또는 `Modules/Core/<Name>/` 에
+   `Project.swift`(`Project.feature(...)` / `Project.core(...)`)와 샘플 소스·테스트를 만든다.
+   이미 같은 이름의 폴더나 등록이 있으면 아무것도 바꾸지 않고 멈춘다.
+2. `Module.swift` 의 `Module.all` 에 등록한다. 데모 앱을 켜면 `Module.withDemoApp` 에도 넣는다.
+   두 목록 끝의 마커 주석 바로 위에 넣으므로 마커를 지우거나 옮기지 않는다.
    워크스페이스 스킴이 이 목록으로 빌드·테스트 대상을 정하므로, 빠지거나 어긋나면 `tuist generate` 가 멈춘다.
-2. `Modules/Core/<Name>/` 또는 `Modules/Features/<Name>/` 에 `Project.swift` 를 만들고
-   `Project.core(...)` / `Project.feature(...)` 를 호출한다.
-3. 템플릿이 기대하는 폴더를 만든다. 옵션을 켠 것만 필요하다.
+3. 옵션을 켠 폴더만 남긴다. 템플릿이 기대하는 폴더는 다음과 같다.
 
    | 폴더 | 언제 |
    | --- | --- |
@@ -149,8 +175,8 @@ Scripts/openapi-generate.sh --check
    | `Demo/Sources/` (`@main` 포함) | `hasDemoApp: true` |
    | `README.md` 등 `*.md`, `docs/` | 선택. 있으면 빌드와 무관하게 Xcode 탐색기에 자동으로 보인다 |
 
-4. `enforceExplicitDependencies` 가 켜져 있으므로 import 하는 모듈은 해당 타깃의
-   `*Dependencies` 에 모두 적는다. 빠지면 `tuist generate` 가 실패한다.
+만든 뒤 import 를 늘리면 `enforceExplicitDependencies` 때문에 그 모듈을 해당 타깃의
+`*Dependencies` 에 모두 적어야 한다. 빠지면 `tuist generate` 가 실패한다.
 
 ## 새 앱으로 복제할 때 바꿀 곳
 
