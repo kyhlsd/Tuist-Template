@@ -19,13 +19,14 @@ import ProjectDescription
 ///      │         ├──────→ Domain
 ///      │         ├──────→ DesignSystem
 ///      │         ├──────→ Navigation
-///      │         └──────→ Tracking
+///      │         ├──────→ Tracking
+///      │         └──────→ FeatureFlags
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
-///      └──→ Tracking   (전송 구현을 꽂기 위해)
+///      └──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
 /// 실제 구현을 꽂아주는 것은 App 의 역할이다.
@@ -65,13 +66,19 @@ public enum Module: Sendable {
     /// 이벤트 기록 프로토콜과 기본 로그 기록기. Foundation 과 os 외에는 import 하지 않는다.
     /// 전송 수단(Firebase Analytics 등)은 App 이 꽂는다.
     case tracking
+    /// Bool 플래그 선언과 조회 프로토콜, 기본값 제공자. Foundation 과 os 외에는 import 하지 않는다.
+    /// 값 출처(Firebase Remote Config 등)는 App 이 꽂는다.
+    case featureFlags
     /// 이름으로 가리키는 Core 모듈(`Modules/Core/<name>`).
     ///
     /// 새 Core 모듈은 이 case 로 추가한다(`Scripts/new-module.sh core <Name>`).
     /// 다른 모듈이 의존하게 되면 `mayDepend(on:)` 에 `(.feature, .core("<Name>"))` 같은 허용 규칙을 더한다.
     /// 이 모듈이 다른 모듈에 의존할 때도(테스트·데모의 `.testing(_:)` 포함) `(.core("<Name>"), .domain)` 같은 규칙이 필요하다.
     /// 규칙이 없으면 generate 가 문구 없이 멈춘다(Tuist 가 `fatalError` 문구를 보여 주지 않는다).
-    /// 기존 모듈은 위의 이름 있는 case 를 유지한다.
+    ///
+    /// 이름 있는 case 로 올리는 기준: 규칙을 여러 쌍에 걸쳐 적어야 하거나(예: 피처와 Data 가 모두 의존)
+    /// 문서 주석으로 계층 역할을 밝혀야 할 때다. `.tracking`, `.featureFlags` 가 그 예다.
+    /// 그 밖에는 이 case 를 그대로 쓴다.
     case core(String)
 
     public var name: String {
@@ -94,6 +101,8 @@ public enum Module: Sendable {
             "Diagnostics"
         case .tracking:
             "Tracking"
+        case .featureFlags:
+            "FeatureFlags"
         case let .core(name):
             name
         }
@@ -103,7 +112,7 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .tracking, .core:
+        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .tracking, .featureFlags, .core:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -139,6 +148,7 @@ public extension Module {
         .navigation,
         .diagnostics,
         .tracking,
+        .featureFlags,
         .feature("Home"),
         // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
@@ -186,7 +196,8 @@ public extension Module {
              (.feature, .domain),
              (.feature, .designSystem),
              (.feature, .navigation),
-             (.feature, .tracking):
+             (.feature, .tracking),
+             (.feature, .featureFlags):
             true
         case (.featureInterface, .domain),
              (.featureInterface, .navigation):
