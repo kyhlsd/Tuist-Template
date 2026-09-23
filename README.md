@@ -93,13 +93,15 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 
 ## CI
 
-`.github/workflows/ci.yml` 이 PR 과 `main` 푸시마다 두 잡을 병렬로 돌린다.
+`.github/workflows/ci.yml` 이 PR 과 `main` 푸시마다 세 잡을 병렬로 돌린다.
+두 빌드 잡의 공통 셋업(mise → SPM 캐시 → `tuist install` → `tuist generate`)은 `.github/actions/setup` 한 곳에 있다.
 Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
 
 | 잡 | 검사 |
 | --- | --- |
 | `lint` | swiftformat 포맷, SwiftLint(error 만 실패), OpenAPI 생성물이 명세와 일치하는지 |
-| `build-test` | `tuist install` → `tuist generate` → 모든 모듈 테스트(Debug) → Release 빌드 |
+| `build-test` | 셋업 → 모든 모듈 테스트(Debug, 커버리지 수집) → 잡 요약에 커버리지 표 |
+| `release-build` | 셋업 → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다 |
 
 로컬에서 같은 검사를 재현하려면 저장소 루트에서 다음을 돌린다.
 
@@ -117,6 +119,26 @@ Scripts/openapi-generate.sh --check
   스택(Spindump)은 번들에 남는다(로컬 실측). 스텝 타임아웃(45분)으로 끊기면 번들이 불완전할 수 있다.
   그 밖의 시뮬레이터 진단이 필요하면 로컬에서 재현한다.
   스냅샷 테스트가 깨졌으면 실제 렌더가 번들의 첨부로 들어가고, `SnapshotFailures` 아티팩트에도 PNG 로 올라간다.
+- **컴파일 캐시**: CI 에서만 Xcode 컴파일 캐시(`COMPILATION_CACHE_ENABLE_CACHING=YES`)를 켜고, 캐시 디렉터리(CAS)를
+  `actions/cache` 로 보존한다. `main` 푸시(와 `workflow_dispatch`) 때 저장하고 PR 은 `main` 의 캐시를 복원만 한다.
+  PR 마다 저장하면 저장소 캐시 한도(10 GB)가 금방 차기 때문이다. 키는 잡 종류(`test-cov`, `release`)·Xcode 빌드·
+  ISO 주·의존성 해시로 나뉜다. CAS 는 저장할 때마다 누적되므로 주가 바뀌면 비우고 새로 시작한다. 그 주 첫 `main` 푸시는
+  캐시 없이 빌드하고, 그 전까지 PR 은 지난주 캐시를 복원한다(PR 은 저장하지 않아 쌓이지 않는다). 지난 주(ISO, UTC
+  월~일)에 `main` 푸시가 없었으면 이번 주 첫 `main` 푸시 전까지 PR 도 캐시 없이 빌드한다. CI 효과 측정은 아직 하지 않았다(측정 예정. 결과는 `docs/plans/2026-09-23-ci-speed-coverage.md`
+  의 측정 기록에 적는다).
+  캐시가 의심스러우면 Actions > Caches 에서 `xcode-cas-` 로 시작하는 항목을 지운다.
+- **커버리지**: 테스트가 통과하면 실행 요약 페이지(잡 요약)에 앱과 모듈의 라인 커버리지 표가 뜬다. 대상은 워크스페이스
+  스킴의 `codeCoverageTargets` 이고, 로컬 `xcbuild.sh test` 는 커버리지를 모으지 않는다. 게이트(최소치)는 없다.
+  로컬에서 보려면 다음을 돌린다.
+
+  ```bash
+  out="$(mktemp -d)/R.xcresult"
+  ./.claude/scripts/xcbuild.sh test -resultBundlePath "$out" -enableCodeCoverage YES
+  Scripts/coverage-summary.sh "$out"
+  ```
+
+- **Tuist 캐시·선택적 테스트**(`tuist cache`, `tuist test --selective-testing`)는 Tuist 계정과 `TUIST_TOKEN` 이 필요해서
+  도입하지 않았다. 도입하면 `release-build` 의 `tuist generate` 에 `--cache-profile none` 이 필요하다.
 - **컴파일 에러·경고**는 PR 파일 뷰에 인라인 주석으로도 달린다. **테스트 실패**는 실행 요약 페이지의
   Annotations 에만 보인다. Swift Testing 이 경로 없이 파일 이름만 내보내서 PR 의 파일에 붙지 않는다.
   (러너 이미지의 xcbeautify 를 쓴다. 이미지에 없거나 `--renderer` 를 모르는 버전이면 주석만 빠지고 잡은 그대로 돈다.)
@@ -124,12 +146,15 @@ Scripts/openapi-generate.sh --check
   저장소 변수 `MACOS_RUNNER` 를 만들면 코드 수정 없이 다른 라벨(GA 라벨, 자체 호스팅 등)로 바꿀 수 있다.
 - **Xcode 메이저를 올릴 때**는 `Tuist.swift` 의 `compatibleXcodeVersions` 와 `ci.yml` 의 기본 러너 라벨
   (또는 `MACOS_RUNNER`)을 함께 바꾼다. 둘이 어긋나면 `tuist generate` 가 멈춘다.
-- **브랜치 보호**에서 `lint`, `build-test` 를 required status check 로 거는 것을 권장한다.
+- **브랜치 보호**에서 `lint`, `build-test`, `release-build` 를 required status check 로 거는 것을 권장한다.
+  이미 `lint`, `build-test` 만 걸어 두었다면 `release-build` 를 추가한다. 빠져 있으면 Release 에서만 깨지는 PR 이 머지된다.
   워크플로를 지우거나 잡 이름을 바꾸기 전에는 이 설정을 먼저 풀어야 PR 이 막히지 않는다.
 - macOS 러너는 분당 과금 배수가 크다(비공개 저장소). 같은 PR 에 새 커밋이 오면 이전 실행은 취소된다.
   `main` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
 - 외부 액션은 커밋 SHA 로 고정돼 있다(뒤에 버전 주석). Dependabot(`.github/dependabot.yml`)이 월 1회
   모든 액션을 PR 하나로 묶어 SHA 와 주석을 함께 올린다. 손으로 올릴 때도 둘을 함께 바꾼다.
+- PR 본문은 `.github/pull_request_template.md` 가 기본값으로 채운다.
+- CODEOWNERS 는 두지 않았다. 기여자가 둘 이상이 되고 모듈별 리뷰어가 생기면 추가한다.
 
 ## 모듈 추가
 
@@ -158,7 +183,8 @@ Scripts/openapi-generate.sh --check
 - `.claude/scripts/xcbuild.sh`: `SCHEME` 과 `PROJECT_FLAGS` 를 `<appName>-Workspace`, `<appName>.xcworkspace` 로
 - `App/Tests/`: `@testable import TuistApp` 의 모듈 이름
 - `CLAUDE.md`: 개요의 앱 이름
-- `.github/workflows/ci.yml`: 바꿀 곳 없음. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
+- `.github/workflows/ci.yml`, `.github/actions/setup/`: 바꿀 곳 없음. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
+- `.github/pull_request_template.md`, `Scripts/coverage-summary.sh`: 바꿀 곳 없음. 앱·모듈 이름을 쓰지 않는다.
 
 앱 표시 이름(`APP_DISPLAY_NAME`)은 xcconfig 가 `$(APP_NAME)` 으로 `appName` 을 따라간다.
 
