@@ -1,0 +1,50 @@
+# build-test 와 release-build 가 공유하는 셋업. 체크아웃 뒤에 쓴다(로컬 액션은 체크아웃된 저장소에서 읽는다).
+# 도구 설치 → SPM 의존성 → 프로젝트 생성 순서다.
+name: 셋업
+description: mise 로 도구를 설치하고 SPM 의존성을 캐시·설치한 뒤 프로젝트를 생성한다.
+
+outputs:
+  xcode-build:
+    description: Xcode 빌드 번호(예 27A266a). 컴파일 캐시 키에 쓴다.
+    value: ${{ steps.xcode.outputs.build }}
+
+runs:
+  using: composite
+  steps:
+    # lint 와 같은 mise 캐시 키를 쓰므로 mise.toml 전체를 설치한다.
+    # mise-action 은 도구 경로를 GITHUB_PATH 에 올리므로 이 액션 밖의 스텝에서도 쓸 수 있다.
+    - name: 도구 설치 (mise)
+      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+    - name: Xcode 버전
+      id: xcode
+      shell: bash
+      run: |
+        xcodebuild -version
+        echo "build=$(xcodebuild -version | awk '/Build version/ {print $3}')" >> "$GITHUB_OUTPUT"
+
+    # 복원과 저장을 나눈다. actions/cache 의 자동 저장은 잡이 성공해야만 돌아서,
+    # 테스트가 깨지는 PR 에서는 매번 의존성을 처음부터 받게 된다.
+    - name: SPM 의존성 캐시 복원
+      id: spm-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: Tuist/.build
+        key: tuist-build-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}
+        restore-keys: |
+          tuist-build-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: 의존성 설치 (tuist install)
+      shell: bash
+      run: tuist install
+
+    - name: SPM 의존성 캐시 저장
+      if: steps.spm-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: Tuist/.build
+        key: ${{ steps.spm-cache.outputs.cache-primary-key }}
+
+    - name: 프로젝트 생성 (tuist generate)
+      shell: bash
+      run: tuist generate --no-open
