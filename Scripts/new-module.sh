@@ -2,7 +2,7 @@
 # 새 모듈을 만들고 Module.swift 등록부에 추가한다.
 #
 #   Scripts/new-module.sh feature Profile --demo
-#   Scripts/new-module.sh core Analytics --testing
+#   Scripts/new-module.sh core Payments --testing
 #   Scripts/new-module.sh <feature|core> <Name> [--demo] [--testing] [--resources]
 #
 # 파일은 Tuist/Templates/<feature|core> 템플릿으로 만든다(tuist scaffold).
@@ -164,5 +164,10 @@ if [[ "$kind" == feature ]]; then
     echo "    App 이 ${name}Route 를 화면으로 바꾸도록 연결한다."
 else
     echo "  - 쓰는 모듈의 매니페스트에 .module(.core(\"$name\")) 를 추가한다."
+    echo "  - Tuist/ProjectDescriptionHelpers/Module.swift 의 mayDepend(on:) 에 허용 규칙을 더한다."
+    echo "      예: (.feature, .core(\"$name\")),"
+    echo "    이 모듈이 다른 모듈에 의존할 때도(테스트·데모의 .testing(_) 포함) 규칙이 필요하다."
+    echo "      예: (.core(\"$name\"), .domain),"
+    echo "    규칙이 없으면 generate 가 문구 없이 멈춘다(App 은 규칙 없이 의존할 수 있다)."
 fi
 echo "  - mise exec -- tuist generate"
