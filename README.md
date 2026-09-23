@@ -121,14 +121,9 @@ Scripts/openapi-generate.sh --check
   스택(Spindump)은 번들에 남는다(로컬 실측). 스텝 타임아웃(45분)으로 끊기면 번들이 불완전할 수 있다.
   그 밖의 시뮬레이터 진단이 필요하면 로컬에서 재현한다.
   스냅샷 테스트가 깨졌으면 실제 렌더가 번들의 첨부로 들어가고, `SnapshotFailures` 아티팩트에도 PNG 로 올라간다.
-- **컴파일 캐시**: CI 에서만 Xcode 컴파일 캐시(`COMPILATION_CACHE_ENABLE_CACHING=YES`)를 켜고, 캐시 디렉터리(CAS)를
-  `actions/cache` 로 보존한다. `main` 푸시(와 `workflow_dispatch`) 때 저장하고 PR 은 `main` 의 캐시를 복원만 한다.
-  PR 마다 저장하면 저장소 캐시 한도(10 GB)가 금방 차기 때문이다. 키는 잡 종류(`test-cov`, `release`)·Xcode 빌드·
-  ISO 주·의존성 해시로 나뉜다. CAS 는 저장할 때마다 누적되므로 주가 바뀌면 비우고 새로 시작한다. 그 주 첫 `main` 푸시는
-  캐시 없이 빌드하고, 그 전까지 PR 은 지난주 캐시를 복원한다(PR 은 저장하지 않아 쌓이지 않는다). 지난 주(ISO, UTC
-  월~일)에 `main` 푸시가 없었으면 이번 주 첫 `main` 푸시 전까지 PR 도 캐시 없이 빌드한다. CI 효과 측정은 아직 하지 않았다(측정 예정. 결과는 `docs/plans/2026-09-23-ci-speed-coverage.md`
-  의 측정 기록에 적는다).
-  캐시가 의심스러우면 Actions > Caches 에서 `xcode-cas-` 로 시작하는 항목을 지운다.
+- **컴파일 캐시**는 쓰지 않는다. Xcode 컴파일 캐시(`COMPILATION_CACHE_ENABLE_CACHING=YES`)의 CAS 를 `actions/cache` 로
+  보존해 봤지만(2026-09-23), 캐시를 복원한 실행이 오히려 느렸다(`build-test` 6분 36초 → 9분 59초). 측정값과 판단은
+  `docs/plans/2026-09-23-ci-speed-coverage.md` 의 측정 기록에 있다. DerivedData 전체 캐시도 쓰지 않는다.
 - **커버리지**: 테스트가 통과하면 실행 요약 페이지(잡 요약)에 앱과 모듈의 라인 커버리지 표가 뜬다. 대상은 워크스페이스
   스킴의 `codeCoverageTargets` 이고, 로컬 `xcbuild.sh test` 는 커버리지를 모으지 않는다. 게이트(최소치)는 없다.
   로컬에서 보려면 다음을 돌린다.
