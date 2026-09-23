@@ -41,6 +41,7 @@ Modules/
     Networking/             OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소
     Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
     Tracking/               이벤트 기록 프로토콜, 로그 기록기 (+ TrackingTesting: 스파이)
+    FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
     Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
   Features/
