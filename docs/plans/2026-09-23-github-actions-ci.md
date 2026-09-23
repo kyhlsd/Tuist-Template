@@ -59,6 +59,7 @@
 
 ### xcbeautify GitHub 렌더러
 - `xcbeautify --renderer github-actions`는 컴파일 에러·테스트 실패를 PR 파일 뷰의 인라인 주석으로 바꾼다. 설치된 xcbeautify 버전이 이 옵션을 지원하는지 **구현 중 확인**.
+  - 실측(6단계): 빌드 에러·경고만 파일 뷰에 붙는다. 테스트 실패는 Swift Testing이 파일 이름만 내보내 실행 요약의 Annotations에만 뜬다.
 - GitHub Actions는 `GITHUB_ACTIONS=true`를 설정한다.
 
 ## 결정 사항

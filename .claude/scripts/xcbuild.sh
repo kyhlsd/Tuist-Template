@@ -79,7 +79,8 @@ run_xcodebuild() {
     # --disable-colored-output: ANSI 이스케이프는 터미널 밖(= 모델 컨텍스트)에서 순수 낭비다.
     # 성공 빌드 출력이 90바이트에서 16바이트로 줄어든다. 실패 시에는 에러 줄마다 붙던 색상 코드가 빠진다.
     local beautify_flags=(--quiet --disable-logging --disable-colored-output)
-    # GitHub Actions 에서는 컴파일 에러·테스트 실패를 PR 파일 뷰의 인라인 주석(::error)으로 바꾼다.
+    # GitHub Actions 에서는 빌드 에러·경고를 PR 파일 뷰의 인라인 주석(::error/::warning)으로 바꾼다.
+    # (테스트 실패는 Swift Testing 이 파일 이름만 내보내 실행 요약의 Annotations 에만 뜬다.)
     # xcbeautify 는 러너 이미지의 것을 쓰므로, --renderer 를 모르는 버전이면 붙이지 않는다(모르는 옵션이면 즉시 종료해 빌드가 실패한다).
     if [ "${GITHUB_ACTIONS:-}" = "true" ] && xcbeautify --help 2>/dev/null | grep -- '--renderer' >/dev/null; then
       beautify_flags+=(--renderer github-actions)
