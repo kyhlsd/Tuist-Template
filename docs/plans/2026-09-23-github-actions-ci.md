@@ -145,6 +145,15 @@
   커밋 메시지 접두어는 저장소 관례(`ci`)에 맞춘다. SPM(`Tuist/Package.swift`)과 `mise.toml`은 넣지 않는다.
 - 검증: YAML 문법 검사. 스키마 검증은 원격(푸시 후 저장소 Insights → Dependency graph → Dependabot)에서 한다.
 
+### 5b. 테스트 실패 시 진단 수집 끄기 (6단계 실패 경로 확인에서 추가)
+- 배경: 테스트가 하나라도 실패하면 CI 테스트 스텝이 10분 늘어난다. 두 번의 실패 실행 모두 마지막 테스트가 끝난 뒤
+  xcodebuild 테스트 액션이 끝나기까지 10분(약 600초) 동안 결과 번들 로그에 아무 활동이 없었다. 로컬에서는 같은 실패가 14초에 끝난다.
+  xcodebuild의 기본값 `-collect-test-diagnostics on-failure`(sysdiagnose 비슷한 상세 진단 수집)가 러너에서 제한 시간까지 도는 것으로 본다.
+- 파일: `.github/workflows/ci.yml`(테스트 스텝), `README.md`(CI 절)
+- 변경: 테스트 스텝에 `-collect-test-diagnostics never`를 더한다. 로컬 `xcbuild.sh` 기본 동작은 바꾸지 않는다.
+- 검증: 로컬에서 옵션이 받아지는지. 원격에서 일부러 실패하는 커밋으로 테스트 스텝이 성공 때와 비슷한 시간(약 5~6분)에 끝나고
+  `.xcresult`가 여전히 올라가는지 본 뒤 되돌린다.
+
 ### 6. 원격 검증
 - 파일: 없음(실패하면 `ci.yml` 수정 커밋)
 - 변경: 작업 브랜치를 푸시하고 PR을 연다. **푸시와 PR 생성은 외부 공개 동작이라 사용자 확인을 받은 뒤 한다.**

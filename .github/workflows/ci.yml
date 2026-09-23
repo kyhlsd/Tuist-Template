@@ -89,6 +89,8 @@ jobs:
       # 스텝 타임아웃은 실패(failure)로 끝나 업로드가 돈다.
       # 단, 이 보장은 테스트 앞 스텝들이 합쳐서 15분(잡 60분 - 스텝 45분) 안에 끝날 때만 성립한다.
       # 캐시 없는 첫 실행의 실제 시간을 재서 두 수치를 조정한다.
+      # -collect-test-diagnostics never: 기본값(on-failure)이면 테스트가 하나라도 실패할 때 sysdiagnose 비슷한
+      # 진단을 모으는데, 러너에서는 이것이 10분을 쓴다(로컬 14초). 실패 원인은 번들의 실패 메시지와 세션 로그로 충분하다.
       - name: 테스트
         id: test
         timeout-minutes: 45
@@ -96,6 +98,7 @@ jobs:
           ./.claude/scripts/xcbuild.sh test
           -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult"
           -test-timeouts-enabled YES
+          -collect-test-diagnostics never
 
       # Release 빌드를 테스트 뒤에 둔다. 테스트가 더 자주 깨지고,
       # 실패하면 .xcresult 번들을 먼저 확보해야 하기 때문이다.
