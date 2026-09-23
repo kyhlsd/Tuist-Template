@@ -1,0 +1,16 @@
+# ci.yml 의 외부 액션은 커밋 SHA 로 고정돼 있다. 고정만 하면 보안 수정과
+# Node 런타임 폐기 대응이 멈추므로, Dependabot 이 SHA 와 뒤의 버전 주석을 함께 올린다.
+# PR 소음과 macOS 러너 비용을 줄이려고 월 1회, 모든 액션을 PR 하나로 묶는다.
+# SPM(Tuist/Package.swift)과 mise.toml 도구는 대상이 아니다.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
