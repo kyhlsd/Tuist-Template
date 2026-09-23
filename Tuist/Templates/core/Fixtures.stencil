@@ -1,0 +1,11 @@
+//
+//  {{ name }}Placeholder+Fixtures.swift
+//  {{ name }}Testing
+//
+
+import {{ name }}
+
+/// 다른 모듈의 테스트·데모가 쓰는 픽스처. 복붙하지 않고 `.testing(.core("{{ name }}"))` 로 가져간다.
+public extension {{ name }}Placeholder {
+    static let sample = {{ name }}Placeholder()
+}

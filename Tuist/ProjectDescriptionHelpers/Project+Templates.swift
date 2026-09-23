@@ -41,6 +41,11 @@ public extension Project {
         let interfaceName = "\(name)Interface"
         let testingName = "\(name)Testing"
 
+        let supportDependencies = testDependencies + testingDependencies + demoDependencies
+        Module.validateFeatureDependencies(
+            name: name, interface: interfaceDependencies, implementation: dependencies, support: supportDependencies
+        )
+
         var targets: [Target] = [
             .module(
                 name: interfaceName,
@@ -119,6 +124,15 @@ public extension Project {
     ) -> Project {
         Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
         let testingName = "\(name)Testing"
+
+        guard let module = Module.all.first(where: { $0.name == name }) else {
+            preconditionFailure("validateRegistration 이 \(name) 의 등록을 보장한다.")
+        }
+        Module.validateModuleDependencies(
+            of: module,
+            dependencies: dependencies,
+            supportDependencies: testDependencies + testingDependencies + demoDependencies
+        )
         let testingTarget: [TargetDependency] = hasTestingSupport ? [.target(name: testingName)] : []
 
         var targets: [Target] = [
@@ -162,14 +176,18 @@ public extension Project {
     /// - Parameters:
     ///   - targetSettings: 앱 타깃에만 적용할 빌드 설정. 공통 xcconfig 에 넣으면 모든 모듈로 퍼지는 값을 여기 둔다.
     ///   - scripts: 앱 타깃의 빌드 스크립트.
+    ///   - additionalInfoPlist: 앱 타깃에만 넣을 Info.plist 키. 데모 앱에는 들어가지 않는다.
     static func app(
         name: String,
         dependencies: [TargetDependency] = [],
         testDependencies: [TargetDependency] = [],
         targetSettings: SettingsDictionary = [:],
-        scripts: [TargetScript] = []
+        scripts: [TargetScript] = [],
+        additionalInfoPlist: [String: Plist.Value] = [:]
     ) -> Project {
-        Project(
+        // 테스트 타깃(testDependencies)은 제한하지 않는다.
+        Module.validateAppDependencies(dependencies, targetName: name)
+        return Project(
             name: name,
             organizationName: AppConstants.organizationName,
             settings: .common,
@@ -180,7 +198,7 @@ public extension Project {
                     product: .app,
                     bundleId: "\(AppConstants.bundleID(for: name))$(BUNDLE_ID_SUFFIX)",
                     deploymentTargets: AppConstants.deploymentTargets,
-                    infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme]),
+                    infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme], additionalEntries: additionalInfoPlist),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
                     scripts: scripts,

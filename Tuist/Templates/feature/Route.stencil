@@ -1,0 +1,14 @@
+//
+//  {{ name }}Route.swift
+//  {{ name }}Interface
+//
+
+import Navigation
+
+/// {{ name }} 가 제공하는 화면들.
+///
+/// {{ name }} 의 화면으로 가려면 이 값을 `Routing.push` 한다. 값을 실제 화면으로 바꾸는 것은 App 이다.
+/// 스캐폴드가 만든 자리표시 case 다. 실제 화면에 맞게 바꾼다.
+public enum {{ name }}Route: Route {
+    case main
+}

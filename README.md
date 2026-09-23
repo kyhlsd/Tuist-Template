@@ -40,6 +40,8 @@ Modules/
     Data/                   Repository 구현, DTO
     Networking/             OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소
     Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
+    Tracking/               이벤트 기록 프로토콜, 로그 기록기 (+ TrackingTesting: 스파이)
+    FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
     Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
   Features/
@@ -158,12 +160,41 @@ Scripts/openapi-generate.sh --check
 
 ## 모듈 추가
 
-1. `Module.swift` 에 case 를 추가한다. (피처는 `.feature("Name")` 을 쓰면 되므로 추가할 필요 없다)
-   그리고 `Module.all` 에 등록한다. 데모 앱을 켜면 `Module.withDemoApp` 에도 넣는다.
+```bash
+Scripts/new-module.sh feature Profile --demo
+Scripts/new-module.sh core Payments --testing
+mise exec -- tuist generate
+```
+
+형식은 `Scripts/new-module.sh <feature|core> <Name> [--demo] [--testing] [--resources]` 이다.
+이름은 대문자로 시작하는 영숫자(UpperCamel)다.
+
+| 옵션 | 만드는 것 | `Project.swift` |
+| --- | --- | --- |
+| `--demo` | `Demo/Sources/<Name>DemoApp.swift`, `Module.withDemoApp` 등록 | `hasDemoApp: true` |
+| `--testing` | `Testing/Sources/` 의 픽스처 | `hasTestingSupport: true` |
+| `--resources` | `Resources/Localizable.xcstrings` | `hasResources: true` |
+
+직접 하는 일:
+
+- 피처는 `App/Project.swift` 의 `dependencies` 에 `.module(.feature("Name"))` 와
+  `.module(.featureInterface("Name"))` 를 추가하고, App 이 `<Name>Route` 를 화면으로 바꾸도록 연결한다.
+- 새 Core 모듈은 `.core("Name")` 으로 참조한다(`.module(.core("Payments"))`). 기존 Core 모듈은 이름 있는 case 그대로다.
+- 새 Core 모듈을 다른 모듈이 쓰거나, 이 모듈(테스트·데모 포함)이 다른 모듈을 쓰면
+  `Module.swift` 의 `mayDepend(on:)` 에 `(.feature, .core("Payments"))`, `(.core("Payments"), .domain)` 같은 규칙을 더한다.
+  없으면 generate 가 문구 없이 멈춘다. App 은 규칙 없이 의존할 수 있다.
+- `Project+Templates.swift` 나 DesignSystem API 를 바꾸면 템플릿(`Tuist/Templates/`)이 따라가지 못할 수 있다.
+  바꾼 뒤 `new-module.sh` 로 한 번 만들어 generate·빌드해 보고 지운다.
+
+스크립트가 하는 일(손으로 할 때도 같다):
+
+1. `Tuist/Templates/<feature|core>` 템플릿으로 `Modules/Features/<Name>/` 또는 `Modules/Core/<Name>/` 에
+   `Project.swift`(`Project.feature(...)` / `Project.core(...)`)와 샘플 소스·테스트를 만든다.
+   이미 같은 이름의 폴더나 등록이 있으면 아무것도 바꾸지 않고 멈춘다.
+2. `Module.swift` 의 `Module.all` 에 등록한다. 데모 앱을 켜면 `Module.withDemoApp` 에도 넣는다.
+   두 목록 끝의 마커 주석 바로 위에 넣으므로 마커를 지우거나 옮기지 않는다.
    워크스페이스 스킴이 이 목록으로 빌드·테스트 대상을 정하므로, 빠지거나 어긋나면 `tuist generate` 가 멈춘다.
-2. `Modules/Core/<Name>/` 또는 `Modules/Features/<Name>/` 에 `Project.swift` 를 만들고
-   `Project.core(...)` / `Project.feature(...)` 를 호출한다.
-3. 템플릿이 기대하는 폴더를 만든다. 옵션을 켠 것만 필요하다.
+3. 옵션을 켠 폴더만 남긴다. 템플릿이 기대하는 폴더는 다음과 같다.
 
    | 폴더 | 언제 |
    | --- | --- |
@@ -174,18 +205,38 @@ Scripts/openapi-generate.sh --check
    | `Demo/Sources/` (`@main` 포함) | `hasDemoApp: true` |
    | `README.md` 등 `*.md`, `docs/` | 선택. 있으면 빌드와 무관하게 Xcode 탐색기에 자동으로 보인다 |
 
-4. `enforceExplicitDependencies` 가 켜져 있으므로 import 하는 모듈은 해당 타깃의
-   `*Dependencies` 에 모두 적는다. 빠지면 `tuist generate` 가 실패한다.
+만든 뒤 import 를 늘리면 `enforceExplicitDependencies` 때문에 그 모듈을 해당 타깃의
+`*Dependencies` 에 모두 적어야 한다. 빠지면 `tuist generate` 가 실패한다.
 
 ## 새 앱으로 복제할 때 바꿀 곳
 
-- `Tuist/ProjectDescriptionHelpers/AppConstants.swift`: `appName`, `bundleIDPrefix`, `organizationName`
-- `.claude/scripts/xcbuild.sh`: `SCHEME` 과 `PROJECT_FLAGS` 를 `<appName>-Workspace`, `<appName>.xcworkspace` 로
-- `App/Tests/`: `@testable import TuistApp` 의 모듈 이름
-- `CLAUDE.md`: 개요의 앱 이름
-- `.github/workflows/ci.yml`, `.github/actions/setup/`: 바꿀 곳 없음. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
-- `.github/pull_request_template.md`, `Scripts/coverage-summary.sh`: 바꿀 곳 없음. 앱·모듈 이름을 쓰지 않는다.
+깨끗한 작업 트리에서 실행한다.
 
+```bash
+Scripts/rename.sh MyApp com.example "Example Inc"
+mise exec -- tuist install && mise exec -- tuist generate
+```
+
+형식은 `Scripts/rename.sh <NewName> <bundlePrefix> [<organizationName>]` 이다. 조직 이름을 생략하면 그대로 둔다.
+옛 값은 `AppConstants.swift` 에서 읽으므로 여러 번 실행해도 된다.
+
+- git 이 추적하는 텍스트 파일 전부에서 옛 앱 이름, URL 스킴(앱 이름 소문자), 번들 ID 접두사, 조직 이름을
+  대소문자를 구분해 부분 문자열로 치환한다. 헤더 주석, `@testable import`, `xcbuild.sh` 의 스킴,
+  `CLAUDE.md` 도 포함된다. `docs/plans/`(당시 기록)와 `*.generated.swift` 는 건드리지 않는다.
+- 경로에 앱 이름이 들어간 파일(`App/Sources/<앱 이름>App.swift`, `App/Tests/<앱 이름>Tests.swift`)은 `git mv` 한다.
+- 부분 문자열 치환이라, 옛 이름이 흔한 단어라면 다른 단어 안의 것도 바뀐다. 결과는 `git diff` 로 검토하고,
+  되돌리려면 `git reset --hard` 한다.
+
+스크립트가 하지 않는 일:
+
+- 옛 워크스페이스(`<옛 이름>.xcworkspace`) 삭제
+- Firebase `GoogleService-Info.plist` 를 새 번들 ID 로 다시 받기
+- `Configurations/ClientKeys.xcconfig`
+- App Store Connect·개발자 계정의 번들 ID 등록
+- 저장소 폴더 이름
+
+`.github/workflows/ci.yml`, `.github/actions/setup/` 은 바꿀 곳이 없다. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
+`.github/pull_request_template.md`, `Scripts/coverage-summary.sh` 도 앱·모듈 이름을 쓰지 않아 바꿀 곳이 없다.
 앱 표시 이름(`APP_DISPLAY_NAME`)은 xcconfig 가 `$(APP_NAME)` 으로 `appName` 을 따라간다.
 
 ## 코드 스타일

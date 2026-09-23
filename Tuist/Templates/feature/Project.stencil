@@ -1,0 +1,26 @@
+//
+//  Project.swift
+//  TuistAppManifests
+//
+
+import ProjectDescription
+import ProjectDescriptionHelpers
+
+let project = Project.feature(
+    name: "{{ name }}",
+    interfaceDependencies: [
+        .module(.navigation),
+    ],
+    dependencies: [
+        .module(.designSystem),
+        .module(.navigation),
+    ]{% if resources == "true" %},
+    hasResources: true{% endif %}{% if testing == "true" %},
+    hasTestingSupport: true{% endif %}{% if demo == "true" %},
+    hasDemoApp: true,
+    demoDependencies: [
+        .module(.designSystem),
+        .module(.navigation),
+    ]{% endif %}
+
+)

@@ -18,12 +18,15 @@ import ProjectDescription
 ///      │         │                 └──────→ Navigation (Route 프로토콜)
 ///      │         ├──────→ Domain
 ///      │         ├──────→ DesignSystem
-///      │         └──────→ Navigation
+///      │         ├──────→ Navigation
+///      │         ├──────→ Tracking
+///      │         └──────→ FeatureFlags
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
+///      └──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
 /// 실제 구현을 꽂아주는 것은 App 의 역할이다.
@@ -35,6 +38,8 @@ import ProjectDescription
 /// `.testing(_:)` 으로 참조한다. 앱과 구현 타깃은 절대 의존하지 않는다.
 ///
 /// 앱은 모듈이 아니므로 여기에 없다. 앱에 의존하는 모듈은 존재할 수 없다.
+///
+/// 이 규칙은 `mayDepend(on:)` 이 generate 시점에 강제한다. 위 그림과 어긋나면 코드가 기준이다.
 public enum Module: Sendable {
     // MARK: Feature
 
@@ -58,6 +63,23 @@ public enum Module: Sendable {
     /// 진단 타입, 중복 억제 보고기, 기본 로그 싱크. Foundation 과 os 외에는 import 하지 않는다.
     /// 전송 수단(Crashlytics 등)은 App 이 싱크로 꽂는다.
     case diagnostics
+    /// 이벤트 기록 프로토콜과 기본 로그 기록기. Foundation 과 os 외에는 import 하지 않는다.
+    /// 전송 수단(Firebase Analytics 등)은 App 이 꽂는다.
+    case tracking
+    /// Bool 플래그 선언과 조회 프로토콜, 기본값 제공자. Foundation 과 os 외에는 import 하지 않는다.
+    /// 값 출처(Firebase Remote Config 등)는 App 이 꽂는다.
+    case featureFlags
+    /// 이름으로 가리키는 Core 모듈(`Modules/Core/<name>`).
+    ///
+    /// 새 Core 모듈은 이 case 로 추가한다(`Scripts/new-module.sh core <Name>`).
+    /// 다른 모듈이 의존하게 되면 `mayDepend(on:)` 에 `(.feature, .core("<Name>"))` 같은 허용 규칙을 더한다.
+    /// 이 모듈이 다른 모듈에 의존할 때도(테스트·데모의 `.testing(_:)` 포함) `(.core("<Name>"), .domain)` 같은 규칙이 필요하다.
+    /// 규칙이 없으면 generate 가 문구 없이 멈춘다(Tuist 가 `fatalError` 문구를 보여 주지 않는다).
+    ///
+    /// 이름 있는 case 로 올리는 기준: 규칙을 여러 쌍에 걸쳐 적어야 하거나(예: 피처와 Data 가 모두 의존)
+    /// 문서 주석으로 계층 역할을 밝혀야 할 때다. `.tracking`, `.featureFlags` 가 그 예다.
+    /// 그 밖에는 이 case 를 그대로 쓴다.
+    case core(String)
 
     public var name: String {
         switch self {
@@ -77,6 +99,12 @@ public enum Module: Sendable {
             "Navigation"
         case .diagnostics:
             "Diagnostics"
+        case .tracking:
+            "Tracking"
+        case .featureFlags:
+            "FeatureFlags"
+        case let .core(name):
+            name
         }
     }
 
@@ -84,7 +112,7 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics:
+        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .tracking, .featureFlags, .core:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -119,7 +147,10 @@ public extension Module {
         .networking,
         .navigation,
         .diagnostics,
+        .tracking,
+        .featureFlags,
         .feature("Home"),
+        // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
 
     /// 데모 앱(`{name}Demo`)을 가진 모듈. 모듈 매니페스트의 `hasDemoApp` 과 같아야 한다.
@@ -129,6 +160,7 @@ public extension Module {
     static let withDemoApp: [Module] = [
         .designSystem,
         .feature("Home"),
+        // new-module.sh 가 이 줄 위에 추가한다(데모 앱). 지우거나 옮기지 않는다.
     ]
 
     /// 모듈 매니페스트의 선언이 등록부와 맞는지 확인한다. 어긋나면 생성을 멈춘다.
@@ -146,4 +178,156 @@ public extension Module {
             )
         }
     }
+}
+
+// MARK: - 의존 규칙
+
+public extension Module {
+    /// 이 모듈의 구현 타깃이 `other` 에 의존해도 되는지. 나열하지 않은 조합은 모두 금지다.
+    ///
+    /// 테스트·Testing·데모 타깃은 여기서 허용한 모듈과 그 모듈들의 `*Testing` 에 의존할 수 있다.
+    ///
+    /// 위반하면 generate 가 멈추지만 Tuist(4.208.0)는 매니페스트의 stderr 를 버려서
+    /// `fatalError` 문구가 보이지 않고, 실패한 `Project.swift` 경로만 나온다.
+    /// 문구는 Tuist 오류에 찍힌 `xcrun swift ... Project.swift --tuist-dump` 명령을 그대로 실행하면 보인다.
+    func mayDepend(on other: Module) -> Bool {
+        switch (self, other) {
+        case (.feature, .featureInterface),
+             (.feature, .domain),
+             (.feature, .designSystem),
+             (.feature, .navigation),
+             (.feature, .tracking),
+             (.feature, .featureFlags):
+            true
+        case (.featureInterface, .domain),
+             (.featureInterface, .navigation):
+            true
+        case (.data, .domain),
+             (.data, .diagnostics),
+             (.data, .networking):
+            true
+        default:
+            false
+        }
+    }
+}
+
+extension Module {
+    /// 타깃이 모듈 규칙상 맡는 역할.
+    enum DependencyRole {
+        /// 모듈 구현과 Interface. `*Testing` 에 의존할 수 없다.
+        case implementation
+        /// 테스트, Testing, 데모 타깃. 허용된 모듈의 `*Testing` 에도 의존할 수 있다.
+        case support
+    }
+
+    /// `.project` 의존의 대상 이름을 등록부의 모듈로 되돌린다. 등록부 밖이면 `nil`.
+    ///
+    /// 피처의 `{name}Testing` 은 Interface 의 목이고 Interface 에만 의존하므로
+    /// `.featureInterface(name)` 의 Testing 으로 본다. 그래야 다른 피처의 테스트·데모가 쓸 수 있다.
+    static func resolve(target: String) -> (module: Module, isTesting: Bool)? {
+        for module in all {
+            switch module {
+            case let .feature(name):
+                let interface = Module.featureInterface(name)
+                if target == module.name {
+                    return (module, false)
+                }
+                if target == interface.name {
+                    return (interface, false)
+                }
+                if target == "\(module.name)Testing" {
+                    return (interface, true)
+                }
+            default:
+                if target == module.name {
+                    return (module, false)
+                }
+                if target == "\(module.name)Testing" {
+                    return (module, true)
+                }
+            }
+        }
+        return nil
+    }
+
+    /// 모듈 타깃의 모듈 간 의존이 `mayDepend(on:)` 을 따르는지 확인한다. 어긋나면 생성을 멈춘다.
+    ///
+    /// `.project` 만 검사한다. 같은 프로젝트 안의 `.target`, `.external`, `.sdk` 는 대상이 아니다.
+    static func validateDependencies(
+        of owner: Module,
+        role: DependencyRole,
+        targetName: String,
+        dependencies: [TargetDependency]
+    ) {
+        for dependency in dependencies {
+            guard case let .project(target, _, _, _) = dependency else { continue }
+            guard let resolved = resolve(target: target) else {
+                fatalError("\(ErrorText.prefix)\(targetName) → \(target): Module.all 에 없는 모듈입니다. \(ErrorText.ruleLocation)")
+            }
+            if role == .implementation, resolved.isTesting {
+                fatalError(
+                    "\(ErrorText.prefix)\(targetName) → \(target): 구현 타깃은 *Testing 에 의존할 수 없습니다. "
+                        + "테스트·데모 타깃의 의존성으로 옮기세요."
+                )
+            }
+            guard owner.mayDepend(on: resolved.module) else {
+                fatalError("\(ErrorText.prefix)\(targetName) → \(target) 의존은 허용되지 않습니다. \(ErrorText.ruleLocation)")
+            }
+        }
+    }
+
+    /// 모듈 구현 타깃과 지원 타깃(테스트, Testing, 데모)을 함께 검사한다.
+    static func validateModuleDependencies(
+        of owner: Module,
+        dependencies: [TargetDependency],
+        supportDependencies: [TargetDependency]
+    ) {
+        validateDependencies(of: owner, role: .implementation, targetName: owner.name, dependencies: dependencies)
+        validateDependencies(
+            of: owner,
+            role: .support,
+            targetName: "\(owner.name)Tests/Testing/Demo",
+            dependencies: supportDependencies
+        )
+    }
+
+    /// 피처의 Interface, 구현, 지원 타깃을 함께 검사한다.
+    static func validateFeatureDependencies(
+        name: String,
+        interface interfaceDependencies: [TargetDependency],
+        implementation dependencies: [TargetDependency],
+        support supportDependencies: [TargetDependency]
+    ) {
+        let interface = Module.featureInterface(name)
+        validateDependencies(
+            of: interface,
+            role: .implementation,
+            targetName: interface.name,
+            dependencies: interfaceDependencies
+        )
+        validateModuleDependencies(
+            of: .feature(name),
+            dependencies: dependencies,
+            supportDependencies: supportDependencies
+        )
+    }
+
+    /// 앱 본 타깃은 어떤 모듈이든 의존할 수 있지만 `*Testing` 에는 의존할 수 없다.
+    static func validateAppDependencies(_ dependencies: [TargetDependency], targetName: String) {
+        for dependency in dependencies {
+            guard case let .project(target, _, _, _) = dependency else { continue }
+            if resolve(target: target)?.isTesting == true {
+                fatalError(
+                    "\(ErrorText.prefix)\(targetName) → \(target): 앱은 *Testing 에 의존할 수 없습니다. "
+                        + "앱 테스트 타깃의 의존성으로 옮기세요."
+                )
+            }
+        }
+    }
+}
+
+private enum ErrorText {
+    static let prefix = "[의존 규칙] "
+    static let ruleLocation = "규칙은 Tuist/ProjectDescriptionHelpers/Module.swift 의 mayDepend(on:) 에 있습니다."
 }

@@ -1,0 +1,15 @@
+//
+//  Project.swift
+//  TuistAppManifests
+//
+
+import ProjectDescription
+import ProjectDescriptionHelpers
+
+let project = Project.core(
+    name: "{{ name }}"{% if resources == "true" %},
+    hasResources: true{% endif %}{% if testing == "true" %},
+    hasTestingSupport: true{% endif %}{% if demo == "true" %},
+    hasDemoApp: true{% endif %}
+
+)
