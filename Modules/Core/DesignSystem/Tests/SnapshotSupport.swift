@@ -7,6 +7,7 @@
 
 @testable import DesignSystem
 import SwiftUI
+import Testing
 import UIKit
 
 /// 외부 의존성 없이 SwiftUI 뷰를 이미지로 렌더링해 비교한다.
@@ -47,6 +48,11 @@ enum Snapshot {
     // MARK: - 렌더링
 
     /// 뷰를 지정한 조건으로 렌더링한다.
+    ///
+    /// `ImageRenderer.uiImage` 대신 직접 만든 비트맵 컨텍스트에 `render(rasterizationScale:renderer:)`로 그린다.
+    /// `uiImage`가 어떤 래스터라이저를 쓰는지는 문서에 없고, 느린 CI 러너에서 크기만 맞고
+    /// 픽셀이 전부 투명한 이미지를 돌려준 적이 있다(`docs/plans/2026-09-23-snapshot-blank-render.md`).
+    /// `render`는 문서상 Core Graphics 그리기 명령으로 호출자의 컨텍스트에 그린다.
     static func render(
         _ view: some View,
         size: CGSize,
@@ -62,11 +68,22 @@ enum Snapshot {
             .environment(\.dynamicTypeSize, dynamicTypeSize)
 
         let renderer = ImageRenderer(content: configured)
-        renderer.scale = scale
         // 뷰가 안전영역을 참조하지 않도록 명시적 크기를 고정한다.
         renderer.proposedSize = ProposedViewSize(size)
 
-        return renderer.uiImage
+        guard let context = bitmapContext(
+            width: Int((size.width * scale).rounded()),
+            height: Int((size.height * scale).rounded())
+        ) else {
+            return nil
+        }
+        context.scaleBy(x: scale, y: scale)
+
+        renderer.render(rasterizationScale: scale) { _, draw in
+            draw(context)
+        }
+
+        return context.makeImage().map { UIImage(cgImage: $0, scale: scale, orientation: .up) }
     }
 
     // MARK: - 비교
@@ -131,20 +148,66 @@ enum Snapshot {
             return "기준 이미지를 읽지 못했습니다: \(identifier) (\(referenceURL.path))"
         }
 
+        return mismatch(between: rendered, and: reference, identifier: identifier) { rendered in
+            recordFailure(rendered, identifier: identifier, recordURL: recordURL)
+        }
+    }
+
+    /// 빈 렌더 실패 메시지의 머리말. 테스트가 분기를 구분하는 데 쓴다.
+    static let blankRenderMessagePrefix = "렌더러가 빈(완전히 투명한) 이미지를 반환했습니다"
+
+    /// 기준 이미지와 다르면 실패 사유를, 같으면 `nil`을 돌려준다.
+    ///
+    /// - Parameter recordFailure: 실패한 렌더를 남기고 그 위치를 돌려준다. 테스트는 디스크에 쓰지 않는 대역을 넘긴다.
+    static func mismatch(
+        between rendered: UIImage,
+        and reference: UIImage,
+        identifier: String,
+        recordFailure: (UIImage) -> URL
+    ) -> String? {
+        // 빈 렌더를 외형 변화와 구분한다. 차이 비율만 보면 "기준 이미지의 채널 평균"이 찍혀
+        // 레이아웃이 바뀐 것처럼 보인다. 기준 이미지도 비어 있으면 의도한 투명 뷰이므로 일반 비교로 넘긴다.
+        if isBlank(rendered), !isBlank(reference) {
+            let failureURL = recordFailure(rendered)
+            return "\(blankRenderMessagePrefix): \(identifier). 실제 결과: \(failureURL.path)"
+        }
+
         let difference = pixelDifference(between: rendered, and: reference)
 
         if difference <= tolerance {
             return nil
         }
 
-        // 실패 시 실제 결과를 남겨 눈으로 비교할 수 있게 한다.
+        let failureURL = recordFailure(rendered)
+        let percentage = String(format: "%.2f", difference * 100)
+        return "외형이 달라졌습니다: \(identifier) (차이 \(percentage)%). 실제 결과: \(failureURL.path)"
+    }
+
+    /// 실패한 실제 결과를 눈으로 비교할 수 있게 남긴다.
+    ///
+    /// 소스 옆 `__Failures__`는 로컬과 CI 아티팩트용이고, 첨부는 `.xcresult` 안에서 바로 보기 위한 것이다.
+    /// 성공한 테스트의 첨부를 지우는 API가 없으므로 실패 경로에서만 기록한다.
+    private static func recordFailure(_ rendered: UIImage, identifier: String, recordURL: URL) -> URL {
+        Attachment.record(rendered, named: "\(identifier).png", as: .png)
+
         let failureURL = recordURL
             .deletingLastPathComponent()
             .appendingPathComponent("__Failures__/\(identifier).png")
+        // 파일은 보조 수단이다. 쓰지 못해도 첨부와 실패 메시지는 남으므로 무시한다.
         try? write(rendered, to: failureURL)
+        return failureURL
+    }
 
-        let percentage = String(format: "%.2f", difference * 100)
-        return "외형이 달라졌습니다: \(identifier) (차이 \(percentage)%). 실제 결과: \(failureURL.path)"
+    /// 모든 픽셀이 투명한지. 비트맵을 읽을 수 없으면 판정하지 않고 `false`를 돌려준다(비교가 대신 실패시킨다).
+    private static func isBlank(_ image: UIImage) -> Bool {
+        guard let bytes = image.cgImage.flatMap(pixelBytes(of:)) else { return false }
+        return isBlank(bytes)
+    }
+
+    /// 모든 픽셀의 알파가 0인지. `pixelBytes(of:)`의 RGBA 바이트를 받는다.
+    static func isBlank(_ rgbaBytes: [UInt8]) -> Bool {
+        let alphaIndices = stride(from: PixelLayout.alphaOffset, to: rgbaBytes.count, by: PixelLayout.bytesPerPixel)
+        return !alphaIndices.contains { rgbaBytes[$0] != 0 }
     }
 
     // MARK: - 픽셀 비교
@@ -177,28 +240,40 @@ enum Snapshot {
         return Double(total) / Double(leftBytes.count * 255)
     }
 
-    private static func pixelBytes(of image: CGImage) -> [UInt8]? {
+    static func pixelBytes(of image: CGImage) -> [UInt8]? {
         let width = image.width
         let height = image.height
-        let bytesPerPixel = 4
-        let bytesPerRow = width * bytesPerPixel
 
-        var bytes = [UInt8](repeating: 0, count: height * bytesPerRow)
-
-        guard let context = CGContext(
-            data: &bytes,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
+        guard let context = bitmapContext(width: width, height: height) else {
             return nil
         }
 
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return bytes
+
+        // `data`는 컨텍스트가 소유한 메모리다. 복사가 끝날 때까지 컨텍스트가 해제되지 않게 붙잡는다.
+        return withExtendedLifetime(context) {
+            guard let data = context.data else {
+                return nil
+            }
+            let count = context.bytesPerRow * height
+            return Array(UnsafeBufferPointer(start: data.assumingMemoryBound(to: UInt8.self), count: count))
+        }
+    }
+
+    /// 렌더링과 비교가 같이 쓰는 RGBA8(premultipliedLast) 비트맵 컨텍스트. 투명으로 초기화되어 있다.
+    private static func bitmapContext(width: Int, height: Int) -> CGContext? {
+        let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: PixelLayout.bitsPerComponent,
+            bytesPerRow: width * PixelLayout.bytesPerPixel,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )
+        // 시스템이 할당한 메모리가 0으로 채워진다는 보장이 문서에 없어 직접 비운다.
+        context?.clear(CGRect(x: 0, y: 0, width: width, height: height))
+        return context
     }
 
     // MARK: - 파일
@@ -260,3 +335,11 @@ enum Snapshot {
 
 /// 테스트 번들을 찾기 위한 표식. 기준 이미지가 이 번들의 리소스로 들어 있다.
 private final class SnapshotBundleToken {}
+
+/// 비교와 렌더링이 쓰는 RGBA8(premultipliedLast) 픽셀 배치.
+private enum PixelLayout {
+    static let bitsPerComponent = 8
+    static let bytesPerPixel = 4
+    /// 픽셀 안에서 알파 채널의 위치(R, G, B, A 순서).
+    static let alphaOffset = 3
+}
