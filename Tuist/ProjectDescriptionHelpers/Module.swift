@@ -58,6 +58,11 @@ public enum Module: Sendable {
     /// 진단 타입, 중복 억제 보고기, 기본 로그 싱크. Foundation 과 os 외에는 import 하지 않는다.
     /// 전송 수단(Crashlytics 등)은 App 이 싱크로 꽂는다.
     case diagnostics
+    /// 이름으로 가리키는 Core 모듈(`Modules/Core/<name>`).
+    ///
+    /// 새 Core 모듈은 이 case 로 추가한다(`Scripts/new-module.sh core <Name>`).
+    /// 기존 모듈은 위의 이름 있는 case 를 유지한다.
+    case core(String)
 
     public var name: String {
         switch self {
@@ -77,6 +82,8 @@ public enum Module: Sendable {
             "Navigation"
         case .diagnostics:
             "Diagnostics"
+        case let .core(name):
+            name
         }
     }
 
@@ -84,7 +91,7 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics:
+        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .core:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -120,6 +127,7 @@ public extension Module {
         .navigation,
         .diagnostics,
         .feature("Home"),
+        // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
 
     /// 데모 앱(`{name}Demo`)을 가진 모듈. 모듈 매니페스트의 `hasDemoApp` 과 같아야 한다.
@@ -129,6 +137,7 @@ public extension Module {
     static let withDemoApp: [Module] = [
         .designSystem,
         .feature("Home"),
+        // new-module.sh 가 이 줄 위에 추가한다(데모 앱). 지우거나 옮기지 않는다.
     ]
 
     /// 모듈 매니페스트의 선언이 등록부와 맞는지 확인한다. 어긋나면 생성을 멈춘다.
