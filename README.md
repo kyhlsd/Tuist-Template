@@ -112,7 +112,8 @@ Scripts/openapi-generate.sh --check
 ```
 
 - **테스트가 실패하면** 실행 요약 페이지의 Artifacts 에 `TestResults.xcresult` 가 올라간다(7일 보관).
-  내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다.
+  내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다. 실패 시 상세 진단(sysdiagnose 비슷한 것)은 모으지 않는다.
+  러너에서 10분씩 걸리기 때문이다. 필요하면 로컬에서 재현한다.
 - **컴파일 에러·경고**는 PR 파일 뷰에 인라인 주석으로도 달린다. **테스트 실패**는 실행 요약 페이지의
   Annotations 에만 보인다. Swift Testing 이 경로 없이 파일 이름만 내보내서 PR 의 파일에 붙지 않는다.
   (러너 이미지의 xcbeautify 를 쓴다. 이미지에 없거나 `--renderer` 를 모르는 버전이면 주석만 빠지고 잡은 그대로 돈다.)
