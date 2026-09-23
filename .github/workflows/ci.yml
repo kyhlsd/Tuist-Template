@@ -58,10 +58,29 @@ jobs:
         id: setup
         uses: ./.github/actions/setup
 
+      # Xcode 컴파일 캐시(CAS). 입력이 같은 컴파일 결과를 재사용한다. CI 에서만 켠다(xcbuild.sh 에 설정 인자로 넘긴다).
+      # CAS 경로는 캐시 경로와 어긋나지 않도록 $RUNNER_TEMP/cas 로 고정한다.
+      # 키에 커밋 SHA 를 넣는다. 키가 같으면 저장이 건너뛰어져 캐시가 갱신되지 않기 때문이다.
+      # 복원은 SHA 를 뺀 접두사로 가장 최근 것을 받는다. Xcode 빌드, 주(cache-week), 의존성이 바뀌면 접두사가 달라져
+      # 새로 시작한다. 주를 넣는 이유는 CAS 가 저장할 때마다 누적되기 때문이다(.github/actions/setup 참고).
+      # PR 만 두 번째 restore-key 로 지난주 캐시를 받는다. 주가 바뀐 뒤 main 이 저장하기 전에도 PR 이 캐시를 쓰게 하려는 것이다.
+      # PR 은 저장하지 않으므로 이 경로로는 쌓이지 않는다. main 에 주면 지난주 내용이 새 주로 넘어가 다시 누적된다.
+      # PR 이 아니면 빈 줄이 되고, actions/cache 는 restore-keys 의 빈 줄을 버린다.
+      - name: 컴파일 캐시 복원
+        id: cas-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cas
+          key: xcode-cas-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-${{ github.sha }}
+          restore-keys: |
+            xcode-cas-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-
+            ${{ github.event_name == 'pull_request' && format('xcode-cas-{0}-{1}-{2}-{3}-{4}-{5}-', 'test', runner.os, runner.arch, steps.setup.outputs.xcode-build, steps.setup.outputs.cache-prev-week, hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml')) || '' }}
+
       # 멈춘 테스트는 xcodebuild 가 테스트 타임아웃으로 끊는다. 그래도 끝나지 않으면 스텝 타임아웃이 끊는다.
       # 잡 타임아웃은 잡을 취소(cancelled)로 끝내 결과 업로드가 돌지 않지만,
       # 스텝 타임아웃은 실패(failure)로 끝나 업로드가 돈다.
-      # 단, 이 보장은 테스트 앞 스텝들이 합쳐서 15분(잡 60분 - 스텝 45분) 안에 끝날 때만 성립한다.
+      # 단, 이 보장은 테스트 앞 스텝들(셋업과 컴파일 캐시 복원)과 뒤 스텝들(업로드, 컴파일 캐시 저장)이 합쳐서
+      # 15분(잡 60분 - 스텝 45분) 안에 끝날 때만 성립한다. 그래서 컴파일 캐시 저장은 업로드 뒤에 둔다.
       # 캐시 없는 첫 실행의 실제 시간을 재서 두 수치를 조정한다.
       # -collect-test-diagnostics never: 기본값(on-failure)이면 테스트가 하나라도 실패할 때 sysdiagnose 비슷한
       # 진단을 모으는데, 러너에서는 이것이 10분을 쓴다(로컬 14초). 실패 원인은 번들의 실패 메시지와 세션 로그로 충분하다.
@@ -73,6 +92,8 @@ jobs:
           -resultBundlePath "$RUNNER_TEMP/TestResults.xcresult"
           -test-timeouts-enabled YES
           -collect-test-diagnostics never
+          COMPILATION_CACHE_ENABLE_CACHING=YES
+          COMPILATION_CACHE_CAS_PATH="$RUNNER_TEMP/cas"
 
       # 테스트 스텝이 실패했을 때만 올린다.
       # overwrite: 재실행이 같은 이름으로 다시 올려도 충돌하지 않게 한다.
@@ -99,6 +120,30 @@ jobs:
           retention-days: 7
           overwrite: true
 
+      # PR 에서는 저장하지 않는다. 저장소 캐시 한도(10 GB)가 금방 차고, PR 은 base 브랜치(main)의 캐시를
+      # 복원할 수 있으므로 main 푸시(와 효과 측정용 workflow_dispatch)에서만 저장하면 된다.
+      # 테스트가 실패해도 컴파일 결과는 유효하므로 저장한다. 셋업이 실패해 테스트가 건너뛰어졌으면 저장할 것이 없다.
+      # 컴파일 전에 실패해 CAS 디렉터리가 없으면 크기 스텝이 exists 를 내지 않고 저장도 건너뛴다.
+      - name: 컴파일 캐시 크기
+        id: cas-size
+        if: >-
+          !cancelled() && github.event_name != 'pull_request'
+          && steps.test.outcome != 'skipped' && steps.cas-cache.outputs.cache-hit != 'true'
+        run: |
+          if [[ -d "$RUNNER_TEMP/cas" ]]; then
+            du -sh "$RUNNER_TEMP/cas"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "CAS 디렉터리가 없어 저장하지 않는다."
+          fi
+
+      - name: 컴파일 캐시 저장
+        if: "!cancelled() && steps.cas-size.outputs.exists == 'true'"
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cas
+          key: ${{ steps.cas-cache.outputs.cache-primary-key }}
+
   # Release 에서만 나는 컴파일 에러(#if DEBUG 분기 등)를 PR 에서 잡는다.
   # build-test 와 병렬로 돌려 PR 의 크리티컬 패스에서 뺀다.
   release-build:
@@ -112,5 +157,40 @@ jobs:
         id: setup
         uses: ./.github/actions/setup
 
+      # 컴파일 캐시는 build-test 와 같은 방식이다(주석은 그쪽 참고). 빌드 설정이 달라 키를 release 로 나눈다.
+      - name: 컴파일 캐시 복원
+        id: cas-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cas
+          key: xcode-cas-release-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-${{ github.sha }}
+          restore-keys: |
+            xcode-cas-release-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup.outputs.xcode-build }}-${{ steps.setup.outputs.cache-week }}-${{ hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml') }}-
+            ${{ github.event_name == 'pull_request' && format('xcode-cas-{0}-{1}-{2}-{3}-{4}-{5}-', 'release', runner.os, runner.arch, steps.setup.outputs.xcode-build, steps.setup.outputs.cache-prev-week, hashFiles('Tuist/Package.resolved', 'Tuist/Package.swift', 'mise.toml')) || '' }}
+
       - name: Release 빌드
-        run: ./.claude/scripts/xcbuild.sh build -configuration Release
+        id: build
+        run: >-
+          ./.claude/scripts/xcbuild.sh build -configuration Release
+          COMPILATION_CACHE_ENABLE_CACHING=YES
+          COMPILATION_CACHE_CAS_PATH="$RUNNER_TEMP/cas"
+
+      - name: 컴파일 캐시 크기
+        id: cas-size
+        if: >-
+          !cancelled() && github.event_name != 'pull_request'
+          && steps.build.outcome != 'skipped' && steps.cas-cache.outputs.cache-hit != 'true'
+        run: |
+          if [[ -d "$RUNNER_TEMP/cas" ]]; then
+            du -sh "$RUNNER_TEMP/cas"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "CAS 디렉터리가 없어 저장하지 않는다."
+          fi
+
+      - name: 컴파일 캐시 저장
+        if: "!cancelled() && steps.cas-size.outputs.exists == 'true'"
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/cas
+          key: ${{ steps.cas-cache.outputs.cache-primary-key }}

@@ -7,6 +7,12 @@ outputs:
   xcode-build:
     description: Xcode 빌드 번호(예 27A266a). 컴파일 캐시 키에 쓴다.
     value: ${{ steps.xcode.outputs.build }}
+  cache-week:
+    description: ISO 주(예 2026-39, UTC). 컴파일 캐시 키에 넣어 주마다 새로 시작하게 한다.
+    value: ${{ steps.week.outputs.week }}
+  cache-prev-week:
+    description: 지난 ISO 주(UTC). PR 이 주 초에 지난주 컴파일 캐시를 복원하는 데 쓴다.
+    value: ${{ steps.week.outputs.prev-week }}
 
 runs:
   using: composite
@@ -22,6 +28,20 @@ runs:
       run: |
         xcodebuild -version
         echo "build=$(xcodebuild -version | awk '/Build version/ {print $3}')" >> "$GITHUB_OUTPUT"
+
+    # 컴파일 캐시(CAS)는 복원한 내용 위에 새 결과가 쌓여 저장할 때마다 커진다.
+    # 의존성이 오래 안 바뀌어도 무한히 커지지 않도록 키에 주를 넣어 주마다 비운다.
+    # %G(ISO 연도)와 %V(ISO 주)를 짝지어야 연말 주 경계가 맞다. -v-7d 는 BSD date(macOS) 문법이다.
+    - name: 캐시 주기
+      id: week
+      shell: bash
+      # 대입을 따로 해야 date 가 실패할 때(예: GNU date 가 PATH 앞에 있는 러너) -e 가 스텝을 실패시킨다.
+      # echo 인자 안에서 실패하면 빈 값이 출력되어 캐시 복원만 조용히 꺼진다.
+      run: |
+        week=$(date -u +%G-%V)
+        prev_week=$(date -u -v-7d +%G-%V)
+        echo "week=$week" >> "$GITHUB_OUTPUT"
+        echo "prev-week=$prev_week" >> "$GITHUB_OUTPUT"
 
     # 복원과 저장을 나눈다. actions/cache 의 자동 저장은 잡이 성공해야만 돌아서,
     # 테스트가 깨지는 PR 에서는 매번 의존성을 처음부터 받게 된다.
