@@ -1,0 +1,11 @@
+//
+//  {{ name }}Route+Fixtures.swift
+//  {{ name }}Testing
+//
+
+import {{ name }}Interface
+
+/// 다른 모듈의 테스트·데모가 쓰는 픽스처. 복붙하지 않고 `.testing(.feature("{{ name }}"))` 로 가져간다.
+public extension {{ name }}Route {
+    static let samples: [Self] = [.main]
+}
