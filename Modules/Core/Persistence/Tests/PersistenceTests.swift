@@ -1,0 +1,19 @@
+//
+//  PersistenceTests.swift
+//  PersistenceTests
+//
+
+import Persistence
+import Testing
+
+/// 테스트 타깃이 비지 않게 스캐폴드가 만든 자리표시 테스트다. 실제 동작을 테스트하면 지운다.
+@Suite("Persistence")
+struct PersistenceTests {
+    @Test("새로 만든 자리표시 값은 서로 같다")
+    func placeholder_newValues_areEqual() {
+        let first = PersistencePlaceholder()
+        let second = PersistencePlaceholder()
+
+        #expect(first == second)
+    }
+}

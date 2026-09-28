@@ -25,9 +25,10 @@ import ProjectDescription
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
 ///      │      ├───→ Auth         (로그인·로그아웃을 AuthSession 에 맡기기 위해)
+///      │      ├───→ Persistence  (설정값·오프라인 캐시. Persistence 는 Domain 을 모른다)
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      │                  └──────→ Auth   (헤더 주입과 401 갱신. Auth 는 명세를 모른다)
-///      ├──→ Domain, DesignSystem, Navigation, Networking, Auth, Diagnostics
+///      ├──→ Domain, DesignSystem, Navigation, Networking, Auth, Diagnostics, Persistence
 ///      ├──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
 ///      └──→ Push                     (payload 규약. 앱 익스텐션도 같은 규칙으로 의존한다)
 ///
@@ -161,6 +162,7 @@ public extension Module {
         .featureFlags,
         .feature("Home"),
         .core("Push"),
+        .core("Persistence"),
         // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
 
@@ -216,7 +218,8 @@ public extension Module {
         case (.data, .domain),
              (.data, .diagnostics),
              (.data, .networking),
-             (.data, .auth):
+             (.data, .auth),
+             (.data, .core("Persistence")):
             true
         case (.networking, .auth):
             true
