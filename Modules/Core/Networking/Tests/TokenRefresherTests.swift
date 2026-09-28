@@ -3,9 +3,10 @@
 //  NetworkingTests
 //
 
+import Auth
+import AuthTesting
 import Foundation
 @testable import Networking
-import NetworkingTesting
 import Testing
 
 @Suite("TokenRefresher")

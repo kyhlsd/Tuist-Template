@@ -1,6 +1,6 @@
 //
 //  KeychainError.swift
-//  Networking
+//  Auth
 //
 
 import Security

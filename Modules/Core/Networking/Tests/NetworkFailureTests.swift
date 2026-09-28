@@ -3,6 +3,7 @@
 //  NetworkingTests
 //
 
+import Auth
 import Foundation
 import HTTPTypes
 @testable import Networking

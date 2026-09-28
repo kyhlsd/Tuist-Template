@@ -18,6 +18,7 @@ let project = Project.app(
         .module(.data),
         .module(.domain),
         .module(.networking),
+        .module(.auth),
         .module(.designSystem),
         .module(.navigation),
         .module(.diagnostics),

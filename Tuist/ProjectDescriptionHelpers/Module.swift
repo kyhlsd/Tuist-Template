@@ -25,7 +25,8 @@ import ProjectDescription
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
-///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
+///      │                  └──────→ Auth   (헤더 주입과 401 갱신. Auth 는 명세를 모른다)
+///      ├──→ Domain, DesignSystem, Navigation, Networking, Auth, Diagnostics
 ///      ├──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
 ///      └──→ Push                     (payload 규약. 앱 익스텐션도 같은 규칙으로 의존한다)
 ///
@@ -56,8 +57,11 @@ public enum Module: Sendable {
     /// Repository 구현, DTO, 영속성. Domain 의 프로토콜을 구현한다.
     case data
     case designSystem
-    /// OpenAPI 생성 클라이언트, 미들웨어(로그·재시도·인증), 토큰 저장소.
+    /// OpenAPI 생성 클라이언트, 미들웨어(로그·재시도·인증).
     case networking
+    /// 토큰 모델·저장소·갱신. Foundation, Security, os 외에는 import 하지 않는다(명세·생성물을 모른다).
+    /// Networking 이 헤더 주입과 401 갱신에 쓴다.
+    case auth
     /// 이동 요청 창구(`Routing`), push 가능한 값의 마커(`Route`), 데모용 단독 `Router`.
     /// FeatureInterface 도 `Route` 를 채택하기 위해 의존한다.
     case navigation
@@ -96,6 +100,8 @@ public enum Module: Sendable {
             "DesignSystem"
         case .networking:
             "Networking"
+        case .auth:
+            "Auth"
         case .navigation:
             "Navigation"
         case .diagnostics:
@@ -113,7 +119,8 @@ public enum Module: Sendable {
         switch self {
         case let .feature(name), let .featureInterface(name):
             .relativeToRoot("Modules/Features/\(name)")
-        case .domain, .data, .designSystem, .networking, .navigation, .diagnostics, .tracking, .featureFlags, .core:
+        case .domain, .data, .designSystem, .networking, .auth, .navigation, .diagnostics, .tracking, .featureFlags,
+             .core:
             .relativeToRoot("Modules/Core/\(name)")
         }
     }
@@ -146,6 +153,7 @@ public extension Module {
         .data,
         .designSystem,
         .networking,
+        .auth,
         .navigation,
         .diagnostics,
         .tracking,
@@ -207,6 +215,8 @@ public extension Module {
         case (.data, .domain),
              (.data, .diagnostics),
              (.data, .networking):
+            true
+        case (.networking, .auth):
             true
         default:
             false

@@ -3,6 +3,7 @@
 //  Networking
 //
 
+import Auth
 import Foundation
 import OpenAPIRuntime
 import OpenAPIURLSession

@@ -1,9 +1,9 @@
 //
 //  InMemoryTokenStore.swift
-//  NetworkingTesting
+//  AuthTesting
 //
 
-import Networking
+import Auth
 
 /// 메모리에만 토큰을 두는 `TokenStore`. 테스트에서 Keychain 대신 쓴다.
 ///

@@ -1,6 +1,6 @@
 //
 //  AuthenticationError.swift
-//  Networking
+//  Auth
 //
 
 /// 토큰 갱신의 실패.

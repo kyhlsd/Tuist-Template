@@ -1,6 +1,6 @@
 //
 //  KeychainTokenStore.swift
-//  Networking
+//  Auth
 //
 
 import Foundation

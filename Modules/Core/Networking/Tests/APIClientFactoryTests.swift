@@ -3,6 +3,7 @@
 //  NetworkingTests
 //
 
+import Auth
 import Foundation
 @testable import Networking
 import OpenAPIRuntime
