@@ -15,7 +15,7 @@ import Tracking
 
 /// 앱의 조립 지점(composition root).
 ///
-/// 구현 타입(`APIClientFactory`, `AuthSession`, `KeychainTokenStore`, `RemoteItemRepository`,
+/// 구현 타입(`APIClientFactory`, `AuthSession`, `KeychainTokenStore`, `RemoteItemRepository`, `RemoteAuthRepository`,
 /// `DiagnosticReporter`, `CrashlyticsDiagnosticSink`, `LoggerDiagnosticSink`, `NetworkBreadcrumbAdapter`,
 /// `FirebaseEventTracker`, `LoggerEventTracker`, `RemoteConfigFeatureFlagProvider`, `DefaultFeatureFlagProvider`)을
 /// 아는 곳은 여기뿐이다.
@@ -23,6 +23,8 @@ import Tracking
 @MainActor
 final class AppContainer {
     let itemRepository: any ItemRepository
+    /// 로그인·로그아웃과 세션 상태. 인증 미들웨어와 같은 `AuthSession` 을 쓴다.
+    let authRepository: any AuthRepository
     /// 피처에 넘길 이벤트 기록기. 앱 전체에서 하나를 쓴다.
     let eventTracker: any EventTracking
     /// 피처에 넘길 플래그 제공자. 앱 전체에서 하나를 쓴다.
@@ -76,6 +78,7 @@ final class AppContainer {
             activityObserver: activityObserver
         )
         itemRepository = RemoteItemRepository(client: client, reporter: diagnosticReporter)
+        authRepository = RemoteAuthRepository(client: client, session: authSession, reporter: diagnosticReporter)
     }
 
     /// Firebase 를 초기화했으면 Crashlytics 로, 아니면 로그로만 남긴다. 건너뛴 이유를 로그로 남긴다.

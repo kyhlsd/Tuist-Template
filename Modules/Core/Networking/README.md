@@ -9,11 +9,13 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 - **명세 주도**: 명세를 고치고 스크립트를 돌리면 `APIProtocol`, 요청·응답 타입이 다시 만들어진다. 명세와 코드가 어긋나면 컴파일 단계에서 드러난다.
 - **자동 인증**: 공개 operation 을 뺀 모든 요청에 `Authorization: Bearer <access token>` 이 붙는다.
 - **토큰 갱신**: 401 을 받으면 refresh token 으로 한 번 갱신하고 원 요청을 한 번 다시 보낸다. 동시에 401 이 여러 개 와도 refresh 호출은 한 번이다.
-- **세션 만료 알림**: refresh 가 400/401 로 거절되면 토큰을 지우고 `onSessionExpired` 를 한 번 부른다. 네트워크 문제로 refresh 가 실패하면 토큰은 유지한다.
+- **세션 만료 알림**: refresh 가 400/401 로 거절되면 토큰을 지우고 `AuthSession.states()` 에 `.expired` 를 한 번 보낸다. 네트워크 문제로 refresh 가 실패하면 토큰은 유지한다.
 - **재시도**: 멱등 요청(GET/HEAD/PUT/DELETE)은 연결 끊김·호스트 연결 실패·502/503 에서 최대 2회(0.5초, 1초 뒤) 다시 보낸다. 타임아웃과 504, 취소는 다시 보내지 않는다.
 - **request ID**: 모든 요청에 `X-Request-ID` 헤더(UUID)가 붙는다. 요청 로그에도 `rid=<id>` 로 같은 값이 찍혀 서버 로그와 이을 수 있다.
 - **안전한 로그**: `os.Logger` 로 method, path(쿼리 제외), status, 소요 시간, request ID 만 남긴다. 그 밖의 헤더·토큰·바디는 남기지 않는다.
-- **Keychain 저장**: 토큰은 `KeychainTokenStore` 가 기기 전용(`AfterFirstUnlockThisDeviceOnly`)으로 저장한다.
+
+토큰 모델·저장소·갱신·세션 상태는 Auth 모듈에 있다. 이 모듈은 Auth 의 public API(`AuthSession`)만 써서 헤더를 붙이고 401 갱신을 맡긴다.
+자세한 규칙은 [`Modules/Core/Auth/README.md`](../Auth/README.md).
 
 ## 구성
 
@@ -23,30 +25,39 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 | `Sources/Generated/` | 생성물(`APIProtocol`, `Client`, `Components`, `Operations`). 손으로 고치지 않는다 |
 | `Sources/APIClientFactory.swift` | 클라이언트 조립. App 만 호출한다 |
 | `Sources/NetworkDefaults.swift` | 타임아웃, 재시도 횟수 등 기본값 |
-| `Sources/Auth/` | `AuthTokens`, `TokenStore`, `KeychainTokenStore`, `TokenRefresher` |
 | `Sources/Middleware/` | `RequestIDMiddleware`, `LoggingMiddleware`, `RetryMiddleware`, `AuthMiddleware`, `PublicOperation` |
 | `Sources/Diagnostics/` | `NetworkFailure`(에러 요약과 보고 대상 판정), `NetworkActivityObserving`, `NetworkRequestRecord`(요청 요약 알림). 진단 전체 구조는 [`Modules/Core/Diagnostics/README.md`](../Diagnostics/README.md) |
-| `Testing/Sources/` | `InMemoryTokenStore`, `RecordingNetworkActivityObserver` (테스트용) |
+| `Testing/Sources/` | `RecordingNetworkActivityObserver` (테스트용) |
 
-의존 방향: App → Data → Networking. Data 는 `APIProtocol` 에만 의존하고, Feature 는 이 모듈을 모른다.
+의존 방향: App → Data → Networking → Auth. Data 는 `APIProtocol` 에만 의존하고, Feature 는 이 모듈을 모른다.
 
 ## 사용법
 
 ### 조립 (App)
 
-세션은 앱 수명 동안 하나만 만들어 둔다.
+`URLSession` 과 `AuthSession` 은 앱 수명 동안 하나씩만 만들어 둔다. `AuthSession` 은 미들웨어와 `RemoteAuthRepository` 가 함께 쓴다.
 
 ```swift
 let session = APIClientFactory.makeSession()
+let authSession = AuthSession(
+    store: KeychainTokenStore(service: bundleIdentifier),
+    refresh: APIClientFactory.makeTokenRefresh(   // Auth 미들웨어 없는 refresh 전용 클라이언트
+        baseURL: configuration.apiBaseURL,
+        session: session,
+        logSubsystem: bundleIdentifier,
+        activityObserver: breadcrumbAdapter
+    ),
+    logger: sessionLogger                         // 세션 만료, 저장소 실패
+)
 let client = APIClientFactory.make(
     baseURL: configuration.apiBaseURL,
     session: session,
-    tokenStore: KeychainTokenStore(service: bundleIdentifier),
+    tokenProvider: authSession,
     logSubsystem: bundleIdentifier,
-    activityObserver: breadcrumbAdapter,   // 요청이 끝날 때마다 요약을 받는다
-    onSessionExpired: { /* 로그인 화면으로 보내기 등 */ }
+    activityObserver: breadcrumbAdapter            // 요청이 끝날 때마다 요약을 받는다
 )
 let repository = RemoteItemRepository(client: client, reporter: diagnosticReporter)
+let authRepository = RemoteAuthRepository(client: client, session: authSession, reporter: diagnosticReporter)
 ```
 
 ### 호출 (Data)
@@ -109,7 +120,7 @@ Scripts/openapi-generate.sh --check
 
 - Repository 테스트는 `APIProtocol` 을 채택한 스텁을 테스트 파일 안에 두고, 원하는 `Output` 을 돌려준다.
   쓰지 않는 operation 은 `Issue.record` 후 에러를 던지게 둔다.
-- 토큰 저장소가 필요하면 `NetworkingTesting` 의 `InMemoryTokenStore` 를 쓴다. `saveCount`, `clearCount` 로 호출을 확인할 수 있다.
+- 토큰 저장소가 필요하면 `AuthTesting` 의 `InMemoryTokenStore` 를 쓴다. `saveCount`, `clearCount` 로 호출을 확인할 수 있다.
 - 요청 요약 알림을 확인하려면 `NetworkingTesting` 의 `RecordingNetworkActivityObserver` 를 쓴다. `records` 에 받은 순서대로 쌓인다.
 
 ## 동작 세부
@@ -138,6 +149,4 @@ Scripts/openapi-generate.sh --check
 
 - `Sources/Generated/*.generated.swift` 는 손으로 고치지 않는다. lint/format 대상에서도 빠져 있다.
 - 로그에 헤더, 토큰, 바디, 쿼리 문자열을 남기지 않는다.
-- `TokenRefresher` 는 저장에 실패한 새 토큰을 메모리에 들고 저장소보다 먼저 읽는다.
-  로그인·로그아웃처럼 `TokenStore` 에 직접 쓰는 코드를 추가할 때는 `TokenRefresher` 를 거치거나 그 메모리 값을 비우는 진입점을 함께 만든다.
-  그러지 않으면 새로 저장한 토큰이나 로그아웃 결과가 가려진다.
+- `TokenStore` 에 직접 쓰지 않는다. 로그인·로그아웃은 `AuthSession` 을 거친다([Auth README](../Auth/README.md)).

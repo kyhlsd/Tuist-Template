@@ -39,7 +39,8 @@ Modules/
   Core/
     Domain/                 엔티티, 에러, Repository 프로토콜, UseCase (+ DomainTesting: 스텁·픽스처)
     Data/                   Repository 구현, DTO
-    Networking/             OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소
+    Networking/             OpenAPI 생성 클라이언트, 미들웨어
+    Auth/                   토큰 모델·저장소·갱신·세션 상태(AuthSession) (+ AuthTesting: InMemoryTokenStore)
     Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
     Tracking/               이벤트 기록 프로토콜, 로그 기록기 (+ TrackingTesting: 스파이)
     FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
