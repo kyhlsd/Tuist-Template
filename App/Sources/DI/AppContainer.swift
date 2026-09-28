@@ -3,6 +3,7 @@
 //  TuistApp
 //
 
+import Auth
 import Data
 import Diagnostics
 import Domain

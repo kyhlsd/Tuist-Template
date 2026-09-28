@@ -3,10 +3,11 @@
 //  NetworkingTests
 //
 
+import Auth
+import AuthTesting
 import Foundation
 import HTTPTypes
 @testable import Networking
-import NetworkingTesting
 import OpenAPIRuntime
 import Testing
 

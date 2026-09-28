@@ -1,6 +1,6 @@
 //
 //  AuthTokens.swift
-//  Networking
+//  Auth
 //
 
 /// 앱이 보관하는 인증 토큰 한 쌍.
