@@ -1,16 +1,15 @@
 //
-//  TokenRefresherTests.swift
-//  NetworkingTests
+//  AuthSessionTests.swift
+//  AuthTests
 //
 
 import Auth
 import AuthTesting
 import Foundation
-@testable import Networking
 import Testing
 
-@Suite("TokenRefresher")
-struct TokenRefresherTests {
+@Suite("AuthSession")
+struct AuthSessionTests {
     private let oldTokens = AuthTokens(accessToken: "old-access", refreshToken: "old-refresh")
     private let newTokens = AuthTokens(accessToken: "new-access", refreshToken: "new-refresh")
 
@@ -21,12 +20,12 @@ struct TokenRefresherTests {
     func refreshedAccessToken_concurrentCalls_refreshesOnce() async throws {
         let store = InMemoryTokenStore(tokens: oldTokens)
         let gate = RefreshGate()
-        let refresher = TokenRefresher(store: store, refresh: gate.refresh, onSessionExpired: {})
+        let session = AuthSession(store: store, refresh: gate.refresh, onSessionExpired: {})
         let callCount = 5
 
         let tokens = try await withThrowingTaskGroup(of: String.self) { group in
             for _ in 0 ..< callCount {
-                group.addTask { try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken) }
+                group.addTask { try await session.refreshedAccessToken(rejected: oldTokens.accessToken) }
             }
             // 첫 호출이 refresh 에 들어간 뒤에 풀어 준다.
             await gate.waitUntilEntered()
@@ -42,7 +41,7 @@ struct TokenRefresherTests {
     func refreshedAccessToken_rejectedTokenIsStale_returnsCurrentWithoutRefresh() async throws {
         let store = InMemoryTokenStore(tokens: newTokens)
         let counter = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { _ in
                 await counter.increment()
@@ -51,7 +50,7 @@ struct TokenRefresherTests {
             onSessionExpired: {}
         )
 
-        let token = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        let token = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
         #expect(token == newTokens.accessToken)
         #expect(await counter.value == 0)
@@ -60,9 +59,9 @@ struct TokenRefresherTests {
     @Test("갱신에 성공하면 새 토큰을 저장한다")
     func refreshedAccessToken_success_savesNewTokens() async throws {
         let store = InMemoryTokenStore(tokens: oldTokens)
-        let refresher = TokenRefresher(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
+        let session = AuthSession(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
 
-        _ = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        _ = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
         #expect(await store.tokens == newTokens)
     }
@@ -72,7 +71,7 @@ struct TokenRefresherTests {
         let store = InMemoryTokenStore(tokens: oldTokens)
         let gate = RefreshGate()
         let expiredCount = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: gate.refresh,
             onSessionExpired: { await expiredCount.increment() }
@@ -83,7 +82,7 @@ struct TokenRefresherTests {
             for _ in 0 ..< callCount {
                 group.addTask {
                     do {
-                        _ = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+                        _ = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
                         return false
                     } catch {
                         return error as? AuthenticationError == .sessionExpired
@@ -103,41 +102,41 @@ struct TokenRefresherTests {
     @Test("전송 실패는 토큰을 지우지 않고 에러를 전파한다")
     func refreshedAccessToken_transportFailure_keepsTokens() async {
         let store = InMemoryTokenStore(tokens: oldTokens)
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { _ in throw URLError(.notConnectedToInternet) },
             onSessionExpired: {}
         )
 
         await #expect(throws: URLError.self) {
-            try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
         }
         #expect(await store.clearCount == 0)
     }
 
     @Test("저장된 토큰이 없으면 세션 만료로 끝난다")
     func refreshedAccessToken_noStoredTokens_throwsSessionExpired() async {
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: InMemoryTokenStore(),
             refresh: { _ in newTokens },
             onSessionExpired: {}
         )
 
         await #expect(throws: AuthenticationError.sessionExpired) {
-            try await refresher.refreshedAccessToken(rejected: nil)
+            try await session.refreshedAccessToken(rejected: nil)
         }
     }
 
     @Test("갱신 뒤 저장에 실패해도 새 토큰을 돌려주고 다음 요청에도 쓴다")
     func refreshedAccessToken_saveFails_returnsNewToken() async throws {
         let store = FailingTokenStore(tokens: oldTokens, saveFailures: 1)
-        let refresher = TokenRefresher(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
+        let session = AuthSession(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
 
-        let token = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        let token = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
         #expect(token == newTokens.accessToken)
         // 저장소에는 이전 토큰이 남아 있지만 다음 요청도 새 토큰을 쓴다.
-        #expect(try await refresher.currentAccessToken() == newTokens.accessToken)
+        #expect(try await session.currentAccessToken() == newTokens.accessToken)
     }
 
     @Test("저장에 실패한 뒤 다음 갱신에서 저장이 성공하면 저장소의 새 토큰을 쓴다")
@@ -145,7 +144,7 @@ struct TokenRefresherTests {
         let store = FailingTokenStore(tokens: oldTokens, saveFailures: 1)
         let latestTokens = AuthTokens(accessToken: "latest-access", refreshToken: "latest-refresh")
         let sentRefreshTokens = ArgumentRecorder()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { [newTokens] refreshToken in
                 // 첫 갱신은 저장에 실패하는 newTokens, 두 번째는 저장에 성공하는 latestTokens.
@@ -153,15 +152,15 @@ struct TokenRefresherTests {
             },
             onSessionExpired: {}
         )
-        _ = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        _ = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
-        _ = try await refresher.refreshedAccessToken(rejected: newTokens.accessToken)
+        _ = try await session.refreshedAccessToken(rejected: newTokens.accessToken)
 
         // 두 번째 갱신은 저장소의 이전 값이 아니라 메모리에 든 새 refresh token 으로 보낸다(D4).
         #expect(await sentRefreshTokens.values == [oldTokens.refreshToken, newTokens.refreshToken])
         #expect(await store.tokens == latestTokens)
         // 메모리에 들고 있던 newTokens 가 비워지지 않으면 여기서 newTokens 가 나온다.
-        #expect(try await refresher.currentAccessToken() == latestTokens.accessToken)
+        #expect(try await session.currentAccessToken() == latestTokens.accessToken)
     }
 
     @Test("저장에 실패한 뒤 세션이 만료되면 메모리의 토큰도 비우고 다시 알리지 않는다")
@@ -169,7 +168,7 @@ struct TokenRefresherTests {
         let store = FailingTokenStore(tokens: oldTokens, saveFailures: 1)
         let counter = CallCounter()
         let expiredCount = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { [newTokens] _ in
                 if await counter.incrementAndGet() == 1 {
@@ -179,15 +178,15 @@ struct TokenRefresherTests {
             },
             onSessionExpired: { await expiredCount.increment() }
         )
-        _ = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        _ = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
         await #expect(throws: AuthenticationError.sessionExpired) {
-            try await refresher.refreshedAccessToken(rejected: newTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: newTokens.accessToken)
         }
-        #expect(try await refresher.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken() == nil)
         // 만료 뒤 늦게 도착한 401 은 콜백을 다시 부르지 않는다(D3).
         await #expect(throws: AuthenticationError.sessionExpired) {
-            try await refresher.refreshedAccessToken(rejected: newTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: newTokens.accessToken)
         }
         #expect(await expiredCount.value == 1)
     }
@@ -196,14 +195,14 @@ struct TokenRefresherTests {
     func refreshedAccessToken_clearFails_stillNotifiesSessionExpired() async {
         let store = FailingTokenStore(tokens: oldTokens, failsClear: true)
         let expiredCount = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { _ in throw AuthenticationError.sessionExpired },
             onSessionExpired: { await expiredCount.increment() }
         )
 
         await #expect(throws: AuthenticationError.sessionExpired) {
-            try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
         }
         #expect(await expiredCount.value == 1)
     }
@@ -212,7 +211,7 @@ struct TokenRefresherTests {
     func refreshedAccessToken_afterFailure_canRefreshAgain() async throws {
         let store = InMemoryTokenStore(tokens: oldTokens)
         let counter = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: store,
             refresh: { _ in
                 // 첫 호출만 실패시킨다.
@@ -223,9 +222,9 @@ struct TokenRefresherTests {
             },
             onSessionExpired: {}
         )
-        _ = try? await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        _ = try? await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
-        let token = try await refresher.refreshedAccessToken(rejected: oldTokens.accessToken)
+        let token = try await session.refreshedAccessToken(rejected: oldTokens.accessToken)
 
         #expect(token == newTokens.accessToken)
     }
@@ -296,7 +295,7 @@ private actor RefreshGate {
     private var pending: CheckedContinuation<AuthTokens, any Error>?
     private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
 
-    nonisolated var refresh: TokenRefresher.Refresh {
+    nonisolated var refresh: AuthSession.Refresh {
         { _ in try await self.enter() }
     }
 

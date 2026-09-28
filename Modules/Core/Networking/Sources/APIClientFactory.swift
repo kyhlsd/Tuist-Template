@@ -7,7 +7,6 @@ import Auth
 import Foundation
 import OpenAPIRuntime
 import OpenAPIURLSession
-import os
 
 /// 생성된 `Client` 에 미들웨어를 붙여 조립한다. App 만 호출한다.
 ///
@@ -20,41 +19,50 @@ public enum APIClientFactory {
         URLSession(configuration: NetworkDefaults.makeSessionConfiguration())
     }
 
+    /// `AuthSession` 에 넘길 refresh 호출을 만든다.
+    ///
+    /// refresh 요청은 AuthMiddleware 를 타지 않는 별도 클라이언트로 보낸다. 재귀를 막는다.
     /// - Parameters:
     ///   - logSubsystem: 요청 로그의 subsystem. 보통 앱의 번들 ID.
-    ///   - activityObserver: 요청이 끝날 때마다 요약을 받는다(refresh 요청 포함).
-    ///   - onSessionExpired: refresh token 이 거절되어 토큰을 지운 뒤 한 번 호출된다.
+    ///   - activityObserver: refresh 요청이 끝날 때마다 요약을 받는다.
+    public static func makeTokenRefresh(
+        baseURL: URL,
+        session: URLSession,
+        logSubsystem: String,
+        activityObserver: any NetworkActivityObserving
+    ) -> AuthSession.Refresh {
+        let refreshClient = Client(
+            serverURL: baseURL,
+            transport: URLSessionTransport(configuration: .init(session: session)),
+            middlewares: [
+                RequestIDMiddleware(),
+                LoggingMiddleware(subsystem: logSubsystem, observer: activityObserver),
+            ]
+        )
+        return { refreshToken in
+            try await refreshTokens(using: refreshClient, refreshToken: refreshToken)
+        }
+    }
+
+    /// - Parameters:
+    ///   - authSession: 요청에 붙일 토큰과 401 갱신을 맡는다. refresh 호출은 `makeTokenRefresh` 로 만든 것을 넣는다.
+    ///   - logSubsystem: 요청 로그의 subsystem. 보통 앱의 번들 ID.
+    ///   - activityObserver: 요청이 끝날 때마다 요약을 받는다.
     public static func make(
         baseURL: URL,
         session: URLSession,
-        tokenStore: any TokenStore,
+        authSession: AuthSession,
         logSubsystem: String,
-        activityObserver: any NetworkActivityObserving,
-        onSessionExpired: @escaping @Sendable () async -> Void
+        activityObserver: any NetworkActivityObserving
     ) -> any APIProtocol {
-        let transport = URLSessionTransport(configuration: .init(session: session))
-        let requestID = RequestIDMiddleware()
-        let logging = LoggingMiddleware(subsystem: logSubsystem, observer: activityObserver)
-
-        // refresh 요청은 AuthMiddleware 를 타지 않는 별도 클라이언트로 보낸다. 재귀를 막는다.
-        let refreshClient = Client(serverURL: baseURL, transport: transport, middlewares: [requestID, logging])
-        let refresher = TokenRefresher(
-            store: tokenStore,
-            refresh: { refreshToken in
-                try await refreshTokens(using: refreshClient, refreshToken: refreshToken)
-            },
-            onSessionExpired: onSessionExpired,
-            logger: Logger(subsystem: logSubsystem, category: NetworkDefaults.logCategory)
-        )
-
-        return Client(
+        Client(
             serverURL: baseURL,
-            transport: transport,
+            transport: URLSessionTransport(configuration: .init(session: session)),
             middlewares: [
-                requestID,
-                logging,
+                RequestIDMiddleware(),
+                LoggingMiddleware(subsystem: logSubsystem, observer: activityObserver),
                 RetryMiddleware(maxRetries: NetworkDefaults.maxRetries, baseDelay: NetworkDefaults.retryBaseDelay),
-                AuthMiddleware(refresher: refresher, publicOperationIDs: PublicOperation.ids),
+                AuthMiddleware(session: authSession, publicOperationIDs: PublicOperation.ids),
             ]
         )
     }

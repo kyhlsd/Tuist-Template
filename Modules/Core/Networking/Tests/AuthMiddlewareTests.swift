@@ -47,7 +47,7 @@ struct AuthMiddlewareTests {
     func intercept_withoutTokenUnauthorized_throwsSessionExpired() async {
         let next = RecordingNext(statuses: [.unauthorized, .ok])
         let refreshCount = CallCounter()
-        let refresher = TokenRefresher(
+        let session = AuthSession(
             store: InMemoryTokenStore(),
             refresh: { [newTokens] _ in
                 await refreshCount.increment()
@@ -55,7 +55,7 @@ struct AuthMiddlewareTests {
             },
             onSessionExpired: {}
         )
-        let middleware = AuthMiddleware(refresher: refresher, publicOperationIDs: PublicOperation.ids)
+        let middleware = AuthMiddleware(session: session, publicOperationIDs: PublicOperation.ids)
 
         await #expect(throws: AuthenticationError.sessionExpired) {
             try await middleware.intercept(
@@ -135,12 +135,12 @@ struct AuthMiddlewareTests {
 
     private func makeMiddleware(store: InMemoryTokenStore) -> AuthMiddleware {
         let newTokens = newTokens
-        let refresher = TokenRefresher(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
-        return AuthMiddleware(refresher: refresher, publicOperationIDs: PublicOperation.ids)
+        let session = AuthSession(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
+        return AuthMiddleware(session: session, publicOperationIDs: PublicOperation.ids)
     }
 }
 
-/// 호출 횟수를 센다. `TokenRefresherTests` 의 같은 이름 대역과 같은 역할이다.
+/// 호출 횟수를 센다. `AuthSessionTests` 의 같은 이름 대역과 같은 역할이다.
 private actor CallCounter {
     private(set) var value = 0
 
