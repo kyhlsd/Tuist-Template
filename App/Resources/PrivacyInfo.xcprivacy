@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  앱 본체의 Privacy Manifest. 모듈은 정적 프레임워크로 앱에 링크되므로 모듈 코드도 여기서 선언한다.
+  외부 SDK(Firebase 등)는 자기 매니페스트를 번들에 담아 오므로 여기에 다시 적지 않는다.
+  Xcode 의 Product > Archive 후 Organizer 의 "Generate Privacy Report" 로 합쳐진 결과를 확인한다.
+
+  NSPrivacyTracking: IDFA 를 쓰지 않는 Analytics 제품(FirebaseAnalyticsCore)만 링크하므로 false.
+  NSPrivacyAccessedAPITypes: Required Reason API(UserDefaults, 파일 타임스탬프, systemUptime,
+    디스크 용량, 활성 키보드)를 앱이나 모듈 코드에서 쓰기 시작하면 사유 코드와 함께 추가한다.
+  NSPrivacyCollectedDataTypes: 앱이 직접 서버로 보내는 사용자 데이터를 선언한다.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

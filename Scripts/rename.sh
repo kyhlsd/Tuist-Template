@@ -12,7 +12,8 @@
 # 경로에 옛 이름이 들어간 파일은 git mv 로 옮긴다.
 #
 # 작업 트리가 깨끗할 때만 실행한다. 결과는 git diff 로 검토하고, 되돌리려면 git reset --hard 한다.
-# Firebase 설정, ClientKeys.xcconfig, 번들 ID 등록, 저장소 폴더 이름은 바꾸지 않는다(끝에 안내한다).
+# Firebase 설정, ClientKeys.xcconfig, 번들 ID 등록, Team ID, Privacy Manifest, 저장소 폴더 이름은 바꾸지 않는다.
+# 그 목록은 README.md 의 "복제한 뒤 직접 할 일" 한 곳에서 관리한다.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -155,8 +156,5 @@ echo
 echo "다음 할 일:"
 echo "  - mise exec -- tuist install && mise exec -- tuist generate"
 echo "  - 옛 워크스페이스 삭제: rm -rf $old_name.xcworkspace"
-echo "  - 스크립트가 바꾸지 않는 것:"
-echo "      Firebase GoogleService-Info.plist (새 번들 ID 로 다시 받는다)"
-echo "      Configurations/ClientKeys.xcconfig"
-echo "      App Store Connect / 개발자 계정의 번들 ID 등록"
-echo "      저장소 폴더 이름"
+echo "  - 스크립트가 하지 않는 일(Team ID, App ID·푸시 기능, Firebase, Privacy Manifest 등)은"
+echo "    README.md 의 \"복제한 뒤 직접 할 일\" 체크리스트를 따른다."

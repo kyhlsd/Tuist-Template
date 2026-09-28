@@ -58,6 +58,10 @@ buildServer.json
 # 이 파일의 값은 어차피 앱 번들에 평문으로 실린다.
 Configurations/ClientKeys.xcconfig
 
+### 개인 서명 설정 ###
+# 팀 공용 Team ID 는 Configurations/Signing.xcconfig 에 커밋한다. 이 파일은 개인 덮어쓰기용이다.
+Configurations/Signing.local.xcconfig
+
 ### 서명 자격증명 ###
 # 이쪽은 진짜 비밀이다. 실수로 루트에 떨어뜨렸을 때의 방어선.
 *.p12

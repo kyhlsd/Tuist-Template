@@ -177,13 +177,16 @@ public extension Project {
     ///   - targetSettings: 앱 타깃에만 적용할 빌드 설정. 공통 xcconfig 에 넣으면 모든 모듈로 퍼지는 값을 여기 둔다.
     ///   - scripts: 앱 타깃의 빌드 스크립트.
     ///   - additionalInfoPlist: 앱 타깃에만 넣을 Info.plist 키. 데모 앱에는 들어가지 않는다.
+    ///   - entitlements: 앱 타깃의 엔타이틀먼트. 데모 앱에는 들어가지 않는다.
+    ///     값에 `$(APS_ENVIRONMENT)` 처럼 빌드 설정을 쓰면 서명할 때 환경별 값으로 바뀐다.
     static func app(
         name: String,
         dependencies: [TargetDependency] = [],
         testDependencies: [TargetDependency] = [],
         targetSettings: SettingsDictionary = [:],
         scripts: [TargetScript] = [],
-        additionalInfoPlist: [String: Plist.Value] = [:]
+        additionalInfoPlist: [String: Plist.Value] = [:],
+        entitlements: Entitlements? = nil
     ) -> Project {
         // 테스트 타깃(testDependencies)은 제한하지 않는다.
         Module.validateAppDependencies(dependencies, targetName: name)
@@ -201,6 +204,7 @@ public extension Project {
                     infoPlist: .runnable(urlSchemes: [AppConstants.urlScheme], additionalEntries: additionalInfoPlist),
                     sources: ["Sources/**"],
                     resources: ["Resources/**"],
+                    entitlements: entitlements,
                     scripts: scripts,
                     dependencies: dependencies,
                     settings: .settings(base: targetSettings)

@@ -37,6 +37,15 @@ VALIDATE_PRODUCT = YES
 API_BASE_URL = https:/$()/api.example.com
 LOG_LEVEL = error
 
+// MARK: - Push
+// 앱 타깃 엔타이틀먼트의 aps-environment 값. 배포 빌드는 APNs 운영 서버로 토큰을 받는다.
+
+APS_ENVIRONMENT = production
+
+// MARK: - Signing
+
+#include "Signing.xcconfig"
+
 // MARK: - Client keys
 
 #include? "ClientKeys.xcconfig"
