@@ -17,7 +17,7 @@ enum NetworkDefaults {
     static let waitsForConnectivity = false
     static let maxRetries = 2
     static let retryBaseDelay: Duration = .milliseconds(500)
-    /// 요청 로그와 토큰 저장소 실패 로그의 category.
+    /// 요청 로그의 category. 토큰 저장소·세션 로그는 App 이 AuthSession 에 넘기는 logger 가 남긴다.
     static let logCategory = "Networking"
     /// 클라이언트 로그와 서버 로그를 잇는 헤더. 서버와 이름이 다르게 정해지면 여기만 바꾼다.
     static let requestIDField: HTTPField.Name = {
