@@ -8,6 +8,7 @@
   NSPrivacyTracking: IDFA 를 쓰지 않는 Analytics 제품(FirebaseAnalyticsCore)만 링크하므로 false.
   NSPrivacyAccessedAPITypes: Required Reason API(UserDefaults, 파일 타임스탬프, systemUptime,
     디스크 용량, 활성 키보드)를 앱이나 모듈 코드에서 쓰기 시작하면 사유 코드와 함께 추가한다.
+    UserDefaults(CA92.1, 앱 전용): Persistence 의 UserDefaultsKeyValueStore 가 설정값을 둔다.
   NSPrivacyCollectedDataTypes: 앱이 직접 서버로 보내는 사용자 데이터를 선언한다.
 -->
 <plist version="1.0">
@@ -19,6 +20,15 @@
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array/>
 	<key>NSPrivacyAccessedAPITypes</key>
-	<array/>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
