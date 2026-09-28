@@ -3,9 +3,18 @@ import PackageDescription
 
 #if TUIST
     import struct ProjectDescription.PackageSettings
+    import struct ProjectDescription.Settings
 
     let packageSettings = PackageSettings(
-        productTypes: [:]
+        productTypes: [:],
+        // 외부 패키지 프로젝트에도 앱과 같은 구성 이름을 둔다. 없으면 Staging 으로 빌드할 때
+        // 패키지는 기본 구성으로 빌드되어 최적화·dSYM 설정이 앱과 어긋난다.
+        // 이름과 변형(debug/release)은 Settings+Common.swift 의 `common` 과 맞춘다.
+        baseSettings: .settings(configurations: [
+            .debug(name: "Debug"),
+            .release(name: "Staging"),
+            .release(name: "Release"),
+        ])
     )
 #endif
 

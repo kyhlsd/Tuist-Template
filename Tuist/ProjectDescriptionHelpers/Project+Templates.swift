@@ -179,6 +179,10 @@ public extension Project {
     ///   - additionalInfoPlist: 앱 타깃에만 넣을 Info.plist 키. 데모 앱에는 들어가지 않는다.
     ///   - entitlements: 앱 타깃의 엔타이틀먼트. 데모 앱에는 들어가지 않는다.
     ///     값에 `$(APS_ENVIRONMENT)` 처럼 빌드 설정을 쓰면 서명할 때 환경별 값으로 바뀐다.
+    ///   - extensions: 앱에 포함할 앱 익스텐션. 앱이 의존하면 Tuist 가 앱 번들의 PlugIns 에 넣는다. `AppExtension` 참고.
+    ///
+    /// Tuist 가 만드는 앱 스킴(`name`)은 Debug 로 실행하고 Release 로 아카이브한다.
+    /// Staging 으로 실행·아카이브하는 스킴(`"\(name)-Staging"`)은 여기서 따로 만든다.
     static func app(
         name: String,
         dependencies: [TargetDependency] = [],
@@ -186,10 +190,15 @@ public extension Project {
         targetSettings: SettingsDictionary = [:],
         scripts: [TargetScript] = [],
         additionalInfoPlist: [String: Plist.Value] = [:],
-        entitlements: Entitlements? = nil
+        entitlements: Entitlements? = nil,
+        extensions: [AppExtension] = []
     ) -> Project {
         // 테스트 타깃(testDependencies)은 제한하지 않는다.
         Module.validateAppDependencies(dependencies, targetName: name)
+        for appExtension in extensions {
+            Module.validateAppDependencies(appExtension.dependencies, targetName: appExtension.name)
+        }
+        let extensionTargets = extensions.map { $0.target(appName: name) }
         return Project(
             name: name,
             organizationName: AppConstants.organizationName,
@@ -206,12 +215,32 @@ public extension Project {
                     resources: ["Resources/**"],
                     entitlements: entitlements,
                     scripts: scripts,
-                    dependencies: dependencies,
+                    dependencies: dependencies + extensions.map { .target(name: $0.name) },
                     settings: .settings(base: targetSettings)
                 ),
                 .testTarget(for: name, dependencies: testDependencies),
-            ],
+            ] + extensionTargets,
+            schemes: [.staging(app: name)],
             additionalFiles: documentationFiles
+        )
+    }
+}
+
+// MARK: - 스킴
+
+private extension Scheme {
+    /// 앱을 Staging 구성으로 실행·프로파일·아카이브하는 스킴. QA 배포용 아카이브는 이 스킴으로 만든다.
+    ///
+    /// 테스트 액션은 두지 않는다. 테스트는 Debug 로 워크스페이스 스킴에서 돈다(`Scheme.workspace()`).
+    static func staging(app name: String) -> Scheme {
+        let app = TargetReference.target(name)
+        return .scheme(
+            name: "\(name)-Staging",
+            buildAction: .buildAction(targets: [app]),
+            runAction: .runAction(configuration: .staging, executable: app),
+            archiveAction: .archiveAction(configuration: .staging),
+            profileAction: .profileAction(configuration: .staging, executable: app),
+            analyzeAction: .analyzeAction(configuration: .staging)
         )
     }
 }

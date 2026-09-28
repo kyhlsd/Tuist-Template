@@ -32,6 +32,11 @@ public extension Settings {
                 name: "Debug",
                 xcconfig: .relativeToRoot("Configurations/Debug.xcconfig")
             ),
+            // Release 변형이다. 외부 패키지도 같은 이름의 구성을 갖도록 Tuist/Package.swift 에 함께 적는다.
+            .release(
+                name: .staging,
+                xcconfig: .relativeToRoot("Configurations/Staging.xcconfig")
+            ),
             .release(
                 name: "Release",
                 xcconfig: .relativeToRoot("Configurations/Release.xcconfig")
@@ -49,6 +54,11 @@ public extension Settings {
         settings.base["SWIFT_DEFAULT_ACTOR_ISOLATION"] = "MainActor"
         return settings
     }
+}
+
+public extension ConfigurationName {
+    /// QA·내부 배포용 구성. Release 변형이며 `Configurations/Staging.xcconfig` 를 쓴다.
+    static let staging: ConfigurationName = "Staging"
 }
 
 public extension InfoPlist {

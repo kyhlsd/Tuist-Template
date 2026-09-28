@@ -23,6 +23,7 @@ let project = Project.app(
         .module(.diagnostics),
         .module(.tracking),
         .module(.featureFlags),
+        .module(.core("Push")),
         // Firebase 는 App 의 어댑터(App/Sources/Diagnostics, Tracking, FeatureFlags)만 쓴다. 모듈은 Firebase 를 모른다.
         .external(name: "FirebaseCrashlytics"),
         .external(name: "FirebaseCore"),
@@ -37,7 +38,14 @@ let project = Project.app(
         "ENABLE_USER_SCRIPT_SANDBOXING": "NO",
     ],
     scripts: [
-        // Release 이고 GoogleService-Info.plist 가 있을 때만 올린다. 아니면 경고만 남긴다.
+        // 구성에 맞는 GoogleService-Info.plist(Configurations/Firebase/<구성>/)를 번들에 넣는다.
+        // 아래 dSYM 업로드가 이 사본을 읽으므로 그보다 앞에 둔다.
+        .post(
+            path: .relativeToRoot("Scripts/firebase-copy-config.sh"),
+            name: "Copy Firebase Config",
+            basedOnDependencyAnalysis: false
+        ),
+        // Staging·Release 이고 GoogleService-Info.plist 가 있을 때만 올린다. 아니면 경고만 남긴다.
         .post(
             path: .relativeToRoot("Scripts/crashlytics-upload-symbols.sh"),
             name: "Upload Crashlytics dSYM",
@@ -55,5 +63,9 @@ let project = Project.app(
         // 원격 푸시. 값은 xcconfig 의 APS_ENVIRONMENT(Debug: development, Release: production)다.
         // 실기기에 설치하려면 개발자 계정의 App ID 에 Push Notifications 기능이 켜져 있어야 한다.
         "aps-environment": "$(APS_ENVIRONMENT)",
-    ])
+    ]),
+    extensions: [
+        // 알림 표시 전에 payload 의 이미지를 붙인다. payload 규약은 Push 모듈에 있다.
+        .notificationService(dependencies: [.module(.core("Push"))]),
+    ]
 )
