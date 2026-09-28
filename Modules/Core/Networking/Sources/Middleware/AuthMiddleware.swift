@@ -12,11 +12,11 @@ import OpenAPIRuntime
 ///
 /// 공개 operation 은 건드리지 않는다. 다시 보낸 요청도 401 이면 그 응답을 그대로 돌려준다.
 struct AuthMiddleware: ClientMiddleware {
-    private let session: AuthSession
+    private let tokenProvider: any AccessTokenProviding
     private let publicOperationIDs: Set<String>
 
-    init(session: AuthSession, publicOperationIDs: Set<String>) {
-        self.session = session
+    init(tokenProvider: any AccessTokenProviding, publicOperationIDs: Set<String>) {
+        self.tokenProvider = tokenProvider
         self.publicOperationIDs = publicOperationIDs
     }
 
@@ -31,7 +31,7 @@ struct AuthMiddleware: ClientMiddleware {
             return try await next(request, body, baseURL)
         }
 
-        let token = try await session.currentAccessToken()
+        let token = try await tokenProvider.currentAccessToken()
         let (response, responseBody) = try await next(Self.authorized(request, token: token), body, baseURL)
 
         // 한 번만 읽을 수 있는 body 는 다시 보낼 수 없으므로 원래 응답을 돌려준다.
@@ -40,7 +40,7 @@ struct AuthMiddleware: ClientMiddleware {
             return (response, responseBody)
         }
 
-        let refreshedToken = try await session.refreshedAccessToken(rejected: token)
+        let refreshedToken = try await tokenProvider.refreshedAccessToken(rejected: token)
         return try await next(Self.authorized(request, token: refreshedToken), body, baseURL)
     }
 

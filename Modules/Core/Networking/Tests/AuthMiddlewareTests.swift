@@ -52,10 +52,9 @@ struct AuthMiddlewareTests {
             refresh: { [newTokens] _ in
                 await refreshCount.increment()
                 return newTokens
-            },
-            onSessionExpired: {}
+            }
         )
-        let middleware = AuthMiddleware(session: session, publicOperationIDs: PublicOperation.ids)
+        let middleware = AuthMiddleware(tokenProvider: session, publicOperationIDs: PublicOperation.ids)
 
         await #expect(throws: AuthenticationError.sessionExpired) {
             try await middleware.intercept(
@@ -135,8 +134,8 @@ struct AuthMiddlewareTests {
 
     private func makeMiddleware(store: InMemoryTokenStore) -> AuthMiddleware {
         let newTokens = newTokens
-        let session = AuthSession(store: store, refresh: { _ in newTokens }, onSessionExpired: {})
-        return AuthMiddleware(session: session, publicOperationIDs: PublicOperation.ids)
+        let session = AuthSession(store: store, refresh: { _ in newTokens })
+        return AuthMiddleware(tokenProvider: session, publicOperationIDs: PublicOperation.ids)
     }
 }
 
