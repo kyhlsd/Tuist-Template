@@ -38,7 +38,7 @@
 
 ## 작업 흐름
 
-기능 작업은 `/ios-platform-research` → `/ios-research` → `/ios-plan` → `/clear` →
+기능 작업은 `/ios-research`(플랫폼·저장소 조사 동시 실행) → `/ios-plan` → `/clear` →
 `/ios-implement` → `/ios-review` 순서입니다. 계획 문서가 세션 인계 수단이라 구현은
 대화 이력이 아니라 그 문서만 입력으로 씁니다. 각 스킬이 끝날 때 다음 단계를 안내합니다.
 자세한 건 `.claude/README.md`(컨텍스트에 실리지 않습니다).
