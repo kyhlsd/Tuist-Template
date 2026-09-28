@@ -9,7 +9,7 @@ effort: high
 작업: $ARGUMENTS
 
 이 대화의 조사 결과를 근거로 계획 문서를 씁니다.
-조사 결과가 대화에 없으면 `/ios-research`와 `/ios-platform-research`를 먼저 돌리라고
+조사 결과가 대화에 없으면 `/ios-research`를 먼저 돌리라고
 알리고 멈추세요. 한쪽만 있으면 나머지가 왜 불필요한지 확인받고 진행합니다.
 
 ## 절차

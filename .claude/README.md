@@ -20,8 +20,7 @@
 ## 사용법
 
 ```
-/ios-platform-research 결제 재시도        ← 백그라운드로 돌기 시작
-/ios-research 결제 실패 처리              ← 동시에 포그라운드 실행
+/ios-research 결제 재시도                 ← 플랫폼·저장소 조사를 동시에 실행
 /ios-plan 결제 재시도                     → docs/plans/2026-09-14-payment-retry.md
 /clear
 /ios-implement docs/plans/2026-09-14-payment-retry.md
@@ -30,27 +29,27 @@
 
 | 순서 | 명령 | 하는 일 | 실행 | 세션 |
 | --- | --- | --- | --- | --- |
-| 1 | `/ios-platform-research <기능>` | Apple API·프레임워크 조사, 접근법 후보 | 포크·백그라운드 | A |
-| 2 | `/ios-research <주제>` | 저장소 구조 조사, 변경 지점과 제약 | 포크·포그라운드 | A |
-| 3 | `/ios-plan <작업>` | 두 조사 대조 → 계획 문서 생성 | 인라인 | A |
-| 4 | `/ios-implement <계획 파일>` | 단계별 구현 | 인라인 | B |
-| 5 | `/ios-review [base-ref]` | 변경분 검토 | 포크·포그라운드 | B |
+| 1 | `/ios-research <기능>` | Apple API 조사 + 저장소 구조 조사를 동시에 | 인라인 → 에이전트 2개 | A |
+| 2 | `/ios-plan <작업>` | 두 조사 대조 → 계획 문서 생성 | 인라인 | A |
+| 3 | `/ios-implement <계획 파일>` | 단계별 구현 | 인라인 | B |
+| 4 | `/ios-review [base-ref]` | 변경분 검토 | 포크·포그라운드 | B |
 
-5를 여러 번 돌릴 때는 `docs/reviews/<브랜치>.md` 결정 기록이 라운드 사이의 기준이 됩니다.
+4를 여러 번 돌릴 때는 `docs/reviews/<브랜치>.md` 결정 기록이 라운드 사이의 기준이 됩니다.
 `/ios-implement`가 리뷰를 반영하면서 기록을 갱신하고, 리뷰어는 그 기록의 확정 결정과 반대되는
 지적을 내지 않습니다(뒤집으려면 근거와 함께 `번복 제안`으로만). 라운드마다 판단이 뒤집히는 것을 막기 위해서입니다.
 
-1을 먼저 띄우면 백그라운드로 도는 동안 2를 돌릴 수 있습니다. 순서를 바꿔도 되지만
-이 순서가 대기 시간이 가장 짧습니다.
+1은 한 응답 안에서 두 에이전트를 같이 띄웁니다. 플랫폼 조사는 백그라운드, 저장소 조사는
+포그라운드입니다. 주제를 따로 주려면 `/ios-research <플랫폼 주제> | <저장소 주제>`로 씁니다.
+슬래시 명령은 메시지당 하나만 실행되므로 두 조사를 하나의 스킬로 묶었습니다.
 
-**3에서 계획 문서가 나오면 `/clear`로 세션을 끊고 4를 새 세션에서 시작합니다.**
+**2에서 계획 문서가 나오면 `/clear`로 세션을 끊고 3을 새 세션에서 시작합니다.**
 계획 문서가 세션 A→B의 인계 수단입니다. 그래서 문서에 `## 전제` 섹션이 있고,
 구현에 필요한 사실(변경 지점, 쓰기로 한 API와 도입 버전, 권한 키, 함정)이
 대화가 아니라 문서에 적혀 있어야 합니다. 조사 단계에서 읽은 파일들이 구현 내내
 컨텍스트를 차지하지 않습니다.
 
-일부 단계만 쓰는 것도 정상입니다. 버그 수정처럼 플랫폼 판단이 필요 없으면 1을 건너뛰고,
-한 줄 수정이면 3~4를 건너뛰고 바로 고쳐도 됩니다.
+일부 단계만 쓰는 것도 정상입니다. 버그 수정처럼 플랫폼 판단이 필요 없으면 1의 플랫폼 조사 결과는 무시해도 되고,
+한 줄 수정이면 2~3을 건너뛰고 바로 고쳐도 됩니다.
 
 ### 조사가 두 갈래인 이유
 
@@ -89,7 +88,7 @@ CLAUDE.md                              매 요청 로드. 프로젝트 개요와
 │   ├── ios-platform-researcher.md     Apple API. 읽기 전용, model: inherit
 │   └── ios-reviewer.md                변경분 검토. 읽기 전용, model: inherit
 ├── skills/
-│   ├── ios-{research,platform-research,plan,implement,review}/SKILL.md
+│   ├── ios-{research,plan,implement,review}/SKILL.md
 │   └── lsp-swift/                     로컬 LSP 플러그인. skills-dir 규칙으로 자동 로드
 └── hooks/
     ├── check-tools.sh                 SessionStart. 도구·설정 누락 감지
@@ -108,11 +107,13 @@ CLAUDE.md                              매 요청 로드. 프로젝트 개요와
 백그라운드 서브에이전트는 축소된 내장 도구 세트로 돌고, 거기에 LSP가 빠집니다
 (WebSearch/WebFetch는 유지됩니다). 그래서
 
-- LSP가 필요한 `/ios-research`, `/ios-review` → `background: false`
-- 웹 검색만 쓰는 `/ios-platform-research` → 백그라운드 기본값
+- `/ios-research`는 인라인 스킬로, Agent 툴을 한 응답에서 두 번 호출합니다.
+  LSP가 필요한 `ios-researcher`는 `run_in_background: false`, 웹 검색만 쓰는
+  `ios-platform-researcher`는 `run_in_background: true`
+- LSP가 필요한 `/ios-review` → 포크 스킬, `background: false`
 
 인터랙티브 세션은 fork mode가 기본 on이라, Claude가 Agent 툴로 띄운 서브에이전트는
-백그라운드로 갑니다. 포크 스킬로 두고 `background`를 직접 지정해야 포그라운드가 보장됩니다.
+`run_in_background`를 지정하지 않으면 백그라운드로 갑니다. 그래서 스킬에서 값을 항상 명시합니다.
 
 ---
 
