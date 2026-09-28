@@ -46,7 +46,7 @@ Modules/
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
   Features/
     Home/                   Interface(HomeRoute) / 구현 / Tests / Demo
-Configurations/             환경별 xcconfig (Debug, Release, ClientKeys)
+Configurations/             환경별 xcconfig (Debug, Release, ClientKeys, Signing)
 Tuist/ProjectDescriptionHelpers/
   AppConstants.swift        앱 이름, 번들 ID 접두사, 배포 타깃
   Module.swift              모듈 목록과 경로, 의존 그래프
@@ -81,6 +81,31 @@ HomeViewModel.select(item)
    등록하지 않은 Route 는 push 해도 화면이 뜨지 않는다.
 
 **탭을 추가할 때**는 `AppTab` 에 case 를, `TabRootView.root` 에 그 탭의 루트 화면을 더한다.
+
+## 서명, 푸시, Privacy Manifest
+
+템플릿은 여기의 값들을 비워 둔 채 시뮬레이터에서 돌아가게만 해 두었다. 새 앱에서 채울 것은
+아래 "새 앱으로 복제할 때 바꿀 곳"의 체크리스트에 있다.
+
+**코드 서명**은 `Configurations/Signing.xcconfig` 한 곳에서 정한다(자동 서명). `DEVELOPMENT_TEAM` 에 팀의
+Team ID 를 적어 커밋한다. 비밀 값이 아니고 팀 전원이 같은 값을 쓴다. 비어 있어도 시뮬레이터 빌드·테스트와
+CI 는 돌고, 실기기 실행과 Archive 에만 필요하다. 개인 팀으로 기기에서 돌려볼 때처럼 나만 다른 값을 써야 하면
+`Configurations/Signing.local.xcconfig`(커밋하지 않음)에 같은 키를 적는다.
+
+**푸시**는 앱 타깃 엔타이틀먼트의 `aps-environment` 가 xcconfig 의 `APS_ENVIRONMENT`
+(Debug `development`, Release `production`)를 따른다. 데모 앱에는 넣지 않는다.
+
+- `AppDelegate` 가 실행할 때마다 APNs 에 등록한다. 토큰은 지금은 로그로만 남긴다
+  (`didRegisterForRemoteNotificationsWithDeviceToken`). 서버 API 가 생기면 거기서 넘긴다.
+- 배너·소리 권한 요청(`UNUserNotificationCenter.requestAuthorization`)은 하지 않는다. 첫 실행에 바로 묻지 말고
+  제품이 정한 화면에서 요청한다. 권한이 없으면 토큰은 받지만 알림이 보이지 않는다.
+- 알림 탭 → 딥링크 이동은 `PushPayload` 와 `AppRouter` 가 맡는다(위 "화면 이동").
+- 실기기에 설치하려면 개발자 계정의 App ID 에 Push Notifications 기능이 켜져 있어야 한다.
+
+**Privacy Manifest**는 `App/Resources/PrivacyInfo.xcprivacy` 다. 모듈은 정적 프레임워크로 앱에 링크되므로 모듈 코드의
+Required Reason API(UserDefaults, 파일 타임스탬프, `systemUptime` 등) 사용도 여기에 사유 코드와 함께 적는다.
+외부 SDK(Firebase)는 자기 매니페스트를 가져온다. 합쳐진 결과는 Archive 후 Organizer 의
+"Generate Privacy Report" 로 확인한다. 파일이 번들에 실리고 plist 로 읽히는지는 `PrivacyManifestTests` 가 확인한다.
 
 ## 스킴
 
@@ -222,13 +247,46 @@ mise exec -- tuist install && mise exec -- tuist generate
 - 부분 문자열 치환이라, 옛 이름이 흔한 단어라면 다른 단어 안의 것도 바뀐다. 결과는 `git diff` 로 검토하고,
   되돌리려면 `git reset --hard` 한다.
 
-스크립트가 하지 않는 일:
+### 복제한 뒤 직접 할 일
 
-- 옛 워크스페이스(`<옛 이름>.xcworkspace`) 삭제
-- Firebase `GoogleService-Info.plist` 를 새 번들 ID 로 다시 받기
-- `Configurations/ClientKeys.xcconfig`
-- App Store Connect·개발자 계정의 번들 ID 등록
-- 저장소 폴더 이름
+스크립트가 하지 않는 일이다. 템플릿은 이 값들 없이도 시뮬레이터 빌드·테스트·CI 가 돌도록 비워 두었으므로,
+빠뜨려도 당장은 드러나지 않는다. 필요해지는 시점별로 나눴다.
+
+**복제 직후**
+
+- [ ] 옛 워크스페이스(`<옛 이름>.xcworkspace`)를 지운다.
+- [ ] 저장소 폴더 이름을 바꾼다(원하면).
+- [ ] `cp Configurations/ClientKeys.xcconfig.example Configurations/ClientKeys.xcconfig` 후 값을 채운다.
+      쓰지 않는 키는 `.example`, `InfoPlist.runnable`(`Settings+Common.swift`)에서 함께 지운다.
+
+**실기기에서 돌리기 전**
+
+- [ ] 개발자 계정에 새 번들 ID(`<bundlePrefix>.<앱 이름 소문자>`, Debug 는 뒤에 `.dev`)로 App ID 를 등록하고
+      **Push Notifications** 기능을 켠다. 엔타이틀먼트에 `aps-environment` 가 있어서, 꺼져 있으면 프로비저닝이 실패한다.
+      푸시를 쓰지 않을 앱이면 `App/Project.swift` 의 `entitlements:` 와 `AppDelegate` 의 등록 코드를 지운다.
+- [ ] `Configurations/Signing.xcconfig` 의 `DEVELOPMENT_TEAM` 에 Team ID 를 적어 커밋한다.
+
+**Firebase 를 켜기 전**
+
+- [ ] Firebase 콘솔에서 새 번들 ID 로 앱을 등록하고 `GoogleService-Info.plist` 를 받는다. 없으면 Crashlytics·Analytics·
+      Remote Config 는 초기화를 건너뛰고 로그로만 동작한다(`FirebaseBootstrap`).
+
+**푸시 알림을 실제로 보내기 전**
+
+- [ ] 알림 권한 요청(`UNUserNotificationCenter.requestAuthorization`)을 제품이 정한 화면에 넣는다. 템플릿은 묻지 않는다.
+      권한이 없으면 토큰은 발급되지만 배너·소리가 나오지 않는다.
+- [ ] 토큰을 서버로 보낸다. `AppDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` 은 지금 로그만
+      남긴다. 서버 API 를 `openapi.yaml` 에 추가하고, Repository 를 거쳐 호출한다.
+- [ ] 서버(또는 푸시 서비스)에 APNs 인증 키(.p8)를 등록한다. 키 파일은 저장소에 두지 않는다.
+- [ ] 알림 payload 의 이동 링크 키(`link`)를 서버와 맞춘다(`PushPayload.Key`).
+
+**App Store 에 제출하기 전**
+
+- [ ] `App/Resources/PrivacyInfo.xcprivacy` 를 새 앱에 맞춘다. 앱·모듈 코드가 Required Reason API(UserDefaults,
+      파일 타임스탬프, `systemUptime` 등)를 쓰면 사유 코드와 함께 적고, 앱이 직접 수집해 서버로 보내는 데이터를 선언한다.
+      Archive 후 Organizer 의 "Generate Privacy Report" 로 SDK 까지 합친 결과를 확인한다.
+- [ ] App Store Connect 의 개인정보 라벨(App Privacy)을 위 리포트와 맞춰 작성한다.
+- [ ] `Configurations/Release.xcconfig` 의 `API_BASE_URL`, `MARKETING_VERSION` 을 실제 값으로 바꾼다.
 
 `.github/workflows/ci.yml`, `.github/actions/setup/` 은 바꿀 곳이 없다. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
 `.github/pull_request_template.md`, `Scripts/coverage-summary.sh` 도 앱·모듈 이름을 쓰지 않아 바꿀 곳이 없다.

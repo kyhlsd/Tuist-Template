@@ -1,0 +1,15 @@
+// Signing.xcconfig
+// 코드 서명 설정. Debug·Release 가 함께 include 한다.
+//
+// DEVELOPMENT_TEAM(Team ID)은 비밀이 아니라 커밋한다. 팀 전원이 같은 값을 쓴다.
+// Team ID 는 developer.apple.com > Membership details 에 있는 10자리 값이다.
+//
+// 비어 있어도 시뮬레이터 빌드·테스트(CI 포함)는 된다. 실기기 실행과 Archive 에만 필요하다.
+//
+// 개인 팀으로 실기기에서 돌려보는 등 나만 다른 값을 써야 하면 커밋하지 말고
+// Signing.local.xcconfig(.gitignore 대상)를 만들어 같은 키를 적는다. 이 파일 끝에서 덮어쓴다.
+
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

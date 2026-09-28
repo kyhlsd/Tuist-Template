@@ -41,6 +41,15 @@ VALIDATE_PRODUCT = NO
 API_BASE_URL = https:/$()/dev-api.example.com
 LOG_LEVEL = debug
 
+// MARK: - Push
+// 앱 타깃 엔타이틀먼트의 aps-environment 값. 개발 빌드는 APNs 샌드박스로 토큰을 받는다.
+
+APS_ENVIRONMENT = development
+
+// MARK: - Signing
+
+#include "Signing.xcconfig"
+
 // MARK: - Client keys
 // 앱 번들에 실리는 공개 키. 서버 시크릿은 여기 오지 않는다.
 // 마지막에 include 해야 위 값들을 덮어쓸 수 있고,
