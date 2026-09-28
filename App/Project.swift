@@ -25,12 +25,16 @@ let project = Project.app(
         .module(.tracking),
         .module(.featureFlags),
         .module(.core("Push")),
+        .module(.core("Persistence")),
         // Firebase 는 App 의 어댑터(App/Sources/Diagnostics, Tracking, FeatureFlags)만 쓴다. 모듈은 Firebase 를 모른다.
         .external(name: "FirebaseCrashlytics"),
         .external(name: "FirebaseCore"),
         // IDFA 를 수집하지 않는 제품(GoogleAppMeasurementCore). IdentitySupport 는 넣지 않는다.
         .external(name: "FirebaseAnalyticsCore"),
         .external(name: "FirebaseRemoteConfig"),
+    ],
+    testDependencies: [
+        .testing(.diagnostics), // 보고를 기록하는 SpyDiagnosticReporter
     ],
     targetSettings: [
         // Firebase 정적 라이브러리의 Objective-C 카테고리를 링크한다.

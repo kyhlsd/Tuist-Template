@@ -29,15 +29,33 @@ struct PrivacyManifestTests {
         #expect(manifest[Manifest.trackingKey] as? Bool == false)
     }
 
+    @Test("UserDefaults 사용 사유를 앱 전용(CA92.1)으로 선언한다")
+    func manifest_userDefaults_declaresAppOnlyReason() throws {
+        let url = try #require(Bundle.main.url(forResource: Manifest.name, withExtension: Manifest.fileExtension))
+        let plist = try PropertyListSerialization.propertyList(from: Data(contentsOf: url), format: nil)
+        let manifest = try #require(plist as? [String: Any])
+        let accessedTypes = try #require(manifest[Manifest.accessedAPITypesKey] as? [[String: Any]])
+        let userDefaults = try #require(accessedTypes.first {
+            $0[Manifest.accessedAPITypeKey] as? String == Manifest.userDefaultsCategory
+        })
+
+        #expect(userDefaults[Manifest.accessedAPIReasonsKey] as? [String] == [Manifest.userDefaultsAppOnlyReason])
+    }
+
     private enum Manifest {
         static let name = "PrivacyInfo"
         static let fileExtension = "xcprivacy"
         static let trackingKey = "NSPrivacyTracking"
+        static let accessedAPITypesKey = "NSPrivacyAccessedAPITypes"
+        static let accessedAPITypeKey = "NSPrivacyAccessedAPIType"
+        static let accessedAPIReasonsKey = "NSPrivacyAccessedAPITypeReasons"
+        static let userDefaultsCategory = "NSPrivacyAccessedAPICategoryUserDefaults"
+        static let userDefaultsAppOnlyReason = "CA92.1"
         static let requiredKeys: Set = [
             trackingKey,
             "NSPrivacyTrackingDomains",
             "NSPrivacyCollectedDataTypes",
-            "NSPrivacyAccessedAPITypes",
+            accessedAPITypesKey,
         ]
     }
 }
