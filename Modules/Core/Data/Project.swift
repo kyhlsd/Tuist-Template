@@ -17,6 +17,7 @@ let project = Project.core(
         .module(.diagnostics),
         .module(.networking),
         .module(.auth),
+        .module(.core("Persistence")),
     ],
     testDependencies: [
         .module(.domain),
@@ -25,6 +26,9 @@ let project = Project.core(
         .testing(.diagnostics), // 보고를 기록하는 SpyDiagnosticReporter
         .module(.auth), // RemoteAuthRepository 테스트가 AuthSession 을 만든다
         .testing(.auth), // InMemoryTokenStore, FailingTokenStore
+        .module(.core("Persistence")), // 테스트가 PersistenceError 를 직접 만든다
+        .testing(.core("Persistence")), // InMemoryKeyValueStore, InMemoryItemCache, FailingItemCache
+        .testing(.domain), // 원격 대역 StubItemRepository
         .external(name: "OpenAPIRuntime"), // 스텁이 만드는 UndocumentedPayload
     ]
 )
