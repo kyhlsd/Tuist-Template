@@ -121,26 +121,3 @@ struct RemoteItemRepositoryTests {
         )
     }
 }
-
-/// 정해진 결과를 돌려주는 `APIProtocol`. 이 파일에서만 쓰므로 Testing 모듈로 빼지 않는다.
-///
-/// 명세에 operation 이 늘면 여기에도 메서드가 늘어난다. 쓰지 않는 operation 은 기록 후 실패한다.
-private struct StubAPI: APIProtocol {
-    let listItems: Result<Operations.ListItems.Output, any Error>
-
-    func listItems(_: Operations.ListItems.Input) async throws -> Operations.ListItems.Output {
-        try listItems.get()
-    }
-
-    func login(_: Operations.Login.Input) async throws -> Operations.Login.Output {
-        Issue.record("이 테스트는 login 을 호출하지 않아야 한다")
-        throw UnexpectedCall()
-    }
-
-    func refreshToken(_: Operations.RefreshToken.Input) async throws -> Operations.RefreshToken.Output {
-        Issue.record("이 테스트는 refreshToken 을 호출하지 않아야 한다")
-        throw UnexpectedCall()
-    }
-}
-
-private struct UnexpectedCall: Error {}

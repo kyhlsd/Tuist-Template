@@ -24,6 +24,7 @@ import ProjectDescription
 ///      ├──→ FeatureInterface   (Route 를 화면으로 바꾸기 위해)
 ///      ├──→ Data ──→ Domain
 ///      │      ├───→ Diagnostics
+///      │      ├───→ Auth         (로그인·로그아웃을 AuthSession 에 맡기기 위해)
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      │                  └──────→ Auth   (헤더 주입과 401 갱신. Auth 는 명세를 모른다)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking, Auth, Diagnostics
@@ -214,7 +215,8 @@ public extension Module {
             true
         case (.data, .domain),
              (.data, .diagnostics),
-             (.data, .networking):
+             (.data, .networking),
+             (.data, .auth):
             true
         case (.networking, .auth):
             true
