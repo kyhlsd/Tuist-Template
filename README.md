@@ -34,9 +34,10 @@ xcode-build-server config -workspace TuistApp.xcworkspace -scheme TuistApp-Works
 App/                        앱 타깃. 모듈을 조립하는 곳
   Sources/DI/               AppContainer(구현 타입 생성), AppConfiguration(Info.plist 설정)
   Sources/Navigation/       탭, 탭별 스택, Route → 화면 매핑
+  Extensions/<Name>/        앱 익스텐션 소스 (NotificationService: 알림 이미지 첨부)
 Modules/
   Core/
-    Domain/                 엔티티, 에러, Repository 프로토콜 (+ DomainTesting: 스텁·픽스처)
+    Domain/                 엔티티, 에러, Repository 프로토콜, UseCase (+ DomainTesting: 스텁·픽스처)
     Data/                   Repository 구현, DTO
     Networking/             OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소
     Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
@@ -44,13 +45,16 @@ Modules/
     FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
     Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
+    Push/                   푸시 payload 규약. 앱과 알림 익스텐션이 함께 쓴다
   Features/
     Home/                   Interface(HomeRoute) / 구현 / Tests / Demo
-Configurations/             환경별 xcconfig (Debug, Release, ClientKeys, Signing)
+Configurations/             환경별 xcconfig (Debug, Staging, Release, ClientKeys, Signing)
+  Firebase/<구성>/          구성별 GoogleService-Info.plist
 Tuist/ProjectDescriptionHelpers/
   AppConstants.swift        앱 이름, 번들 ID 접두사, 배포 타깃
   Module.swift              모듈 목록과 경로, 의존 그래프
-  Project+Templates.swift   feature / core / app 템플릿
+  Project+Templates.swift   feature / core / app 템플릿, Staging 앱 스킴
+  AppExtension.swift        앱 익스텐션 타깃 (알림 서비스, 위젯)
   Settings+Common.swift     공통 빌드 설정
 ```
 
@@ -82,6 +86,61 @@ HomeViewModel.select(item)
 
 **탭을 추가할 때**는 `AppTab` 에 case 를, `TabRootView.root` 에 그 탭의 루트 화면을 더한다.
 
+## UseCase
+
+뷰모델은 Repository 대신 Domain 의 UseCase 프로토콜에 의존한다. 샘플은 `FetchItemsUseCase` 다.
+
+```
+HomeViewModel ──→ FetchItemsUseCase (Domain, 프로토콜)
+                    └ DefaultFetchItemsUseCase ──→ ItemRepository (Domain, 프로토콜)
+                                                    └ RemoteItemRepository (Data)
+```
+
+- UseCase 는 Domain 에 둔다. Foundation 외에는 import 하지 않는다.
+- **만드는 기준**: 도메인 규칙(정렬·필터·검증)이 있거나 Repository 를 둘 이상 조합할 때.
+  Repository 를 그대로 전달만 하는 UseCase 는 만들지 않는다. 그때는 뷰모델이 Repository 에 직접 의존해도 된다.
+- 이름은 `<동사><대상>UseCase`(프로토콜), `Default<...>UseCase`(구현), `Stub<...>UseCase`(DomainTesting)다.
+- 규칙은 `Default...UseCase` 테스트(DomainTests, `StubItemRepository` 사용)가 검증한다.
+  뷰모델 테스트는 `Stub...UseCase` 로 결과만 정하고 규칙을 다시 검증하지 않는다.
+- 조립은 App 이 한다(`AppContainer+<Feature>.swift`).
+
+## 환경 (Debug / Staging / Release)
+
+| 구성 | 용도 | 최적화 | 번들 ID | 표시 이름 | 서버 | Firebase | APNs |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Debug | 로컬 개발, 테스트 | 없음 | `….dev` | `<앱> Dev` | dev | 쓰지 않음 | development |
+| Staging | QA·내부 배포 | Release 와 같음 | `….stg` | `<앱> Stg` | staging | `Configurations/Firebase/Staging/` | production |
+| Release | App Store | 최적화 | 접미사 없음 | `<앱>` | 운영 | `Configurations/Firebase/Release/` | production |
+
+- 값은 `Configurations/<구성>.xcconfig` 에 있다. 세 번들 ID 가 달라 한 기기에 나란히 설치된다.
+- Staging 은 컴파일 조건이 Release 와 같다. `#if STAGING` 같은 분기를 만들지 않고, 환경 차이는 xcconfig →
+  Info.plist 값으로만 낸다. 그래야 QA 가 본 코드 경로와 배포되는 코드 경로가 같다.
+- Staging 으로 실행·아카이브하려면 `TuistApp-Staging` 스킴을 쓴다. 명령줄에서는
+  `./.claude/scripts/xcbuild.sh build -configuration Staging` 이다.
+- 외부 패키지도 같은 구성 이름을 갖도록 `Tuist/Package.swift` 의 `baseSettings` 에 적어 두었다.
+  구성을 더하거나 이름을 바꾸면 `Settings+Common.swift` 와 이곳을 함께 고친다.
+- Firebase 설정 파일은 `Configurations/Firebase/README.md` 를 본다. 빌드 단계가 구성에 맞는 파일을 번들에 복사하고,
+  없으면 Firebase 는 로그로만 동작한다. dSYM 업로드도 Staging·Release 에서 돈다.
+
+## 앱 익스텐션
+
+`Project.app(extensions:)` 에 `AppExtension` 을 넘기면 타깃을 만들고 앱에 포함한다(`AppExtension.swift`).
+
+```swift
+extensions: [
+    .notificationService(dependencies: [.module(.core("Push"))]),
+    // .widget(name: "Widget", entitlements: .dictionary(["com.apple.security.application-groups": ["group.<번들 ID>"]])),
+]
+```
+
+- 소스는 `App/Extensions/<Name>/Sources/` 에 둔다. 번들 ID 는 `<앱 번들 ID>.<name 소문자>` 이고,
+  버전·환경 접미사·서명은 앱과 같은 xcconfig 를 따른다.
+- 모듈 의존은 앱과 같은 규칙이다(`*Testing` 불가). 앱과 나눌 로직은 익스텐션에 복사하지 않고 Core 모듈로 둔다.
+  익스텐션 타깃에는 테스트 타깃이 없으므로, 검증할 로직도 모듈로 빼서 모듈 테스트로 확인한다(예: `PushPayloadTests`).
+- 샘플 `NotificationService` 는 payload 의 `image_url`(https 만)을 내려받아 첨부한다. 알림에 `mutable-content: 1` 이
+  있어야 불린다. 다운로드는 20초에서 끊어 시스템 제한(약 30초) 전에 항상 돌아온다.
+- 위젯·공유 익스텐션처럼 앱과 데이터를 나누면 앱과 익스텐션 양쪽 `entitlements` 에 같은 App Group 을 넣는다.
+
 ## 서명, 푸시, Privacy Manifest
 
 템플릿은 여기의 값들을 비워 둔 채 시뮬레이터에서 돌아가게만 해 두었다. 새 앱에서 채울 것은
@@ -93,13 +152,14 @@ CI 는 돌고, 실기기 실행과 Archive 에만 필요하다. 개인 팀으로
 `Configurations/Signing.local.xcconfig`(커밋하지 않음)에 같은 키를 적는다.
 
 **푸시**는 앱 타깃 엔타이틀먼트의 `aps-environment` 가 xcconfig 의 `APS_ENVIRONMENT`
-(Debug `development`, Release `production`)를 따른다. 데모 앱에는 넣지 않는다.
+(Debug `development`, Staging·Release `production`)를 따른다. 데모 앱에는 넣지 않는다.
 
 - `AppDelegate` 가 실행할 때마다 APNs 에 등록한다. 토큰은 지금은 로그로만 남긴다
   (`didRegisterForRemoteNotificationsWithDeviceToken`). 서버 API 가 생기면 거기서 넘긴다.
 - 배너·소리 권한 요청(`UNUserNotificationCenter.requestAuthorization`)은 하지 않는다. 첫 실행에 바로 묻지 말고
   제품이 정한 화면에서 요청한다. 권한이 없으면 토큰은 받지만 알림이 보이지 않는다.
-- 알림 탭 → 딥링크 이동은 `PushPayload` 와 `AppRouter` 가 맡는다(위 "화면 이동").
+- 알림 탭 → 딥링크 이동은 `PushPayload`(Push 모듈)와 `AppRouter` 가 맡는다(위 "화면 이동").
+- 표시 전 이미지 첨부는 `NotificationService` 익스텐션이 맡는다(위 "앱 익스텐션").
 - 실기기에 설치하려면 개발자 계정의 App ID 에 Push Notifications 기능이 켜져 있어야 한다.
 
 **Privacy Manifest**는 `App/Resources/PrivacyInfo.xcprivacy` 다. 모듈은 정적 프레임워크로 앱에 링크되므로 모듈 코드의
@@ -114,9 +174,11 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 | 스킴 | 실행(⌘R) | 테스트(⌘U) |
 | --- | --- | --- |
 | `TuistApp` | 앱 | 앱 테스트만 |
+| `TuistApp-Staging` | 앱 (Staging) | 없음. Staging 아카이브(QA 배포)용 |
 | `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트 (빌드는 앱·모듈·데모 앱만. `Scheme+Workspace.swift`. 배포 아카이브는 `TuistApp` 스킴으로) |
 | `Home` | HomeDemo | HomeTests |
 | `DesignSystem` | DesignSystemDemo (카탈로그) | DesignSystemTests |
+| `NotificationService` | 익스텐션 (실행 시 호스트 앱을 고른다) | 없음 |
 
 ## CI
 
@@ -128,7 +190,7 @@ Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
 | --- | --- |
 | `lint` | swiftformat 포맷, SwiftLint(error 만 실패), OpenAPI 생성물이 명세와 일치하는지 |
 | `build-test` | 셋업 → 모든 모듈 테스트(Debug, 커버리지 수집) → 잡 요약에 커버리지 표 |
-| `release-build` | 셋업 → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다 |
+| `release-build` | 셋업 → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다. Staging 은 컴파일 조건이 같아 따로 빌드하지 않는다 |
 
 로컬에서 같은 검사를 재현하려면 저장소 루트에서 다음을 돌린다.
 
@@ -261,15 +323,19 @@ mise exec -- tuist install && mise exec -- tuist generate
 
 **실기기에서 돌리기 전**
 
-- [ ] 개발자 계정에 새 번들 ID(`<bundlePrefix>.<앱 이름 소문자>`, Debug 는 뒤에 `.dev`)로 App ID 를 등록하고
-      **Push Notifications** 기능을 켠다. 엔타이틀먼트에 `aps-environment` 가 있어서, 꺼져 있으면 프로비저닝이 실패한다.
-      푸시를 쓰지 않을 앱이면 `App/Project.swift` 의 `entitlements:` 와 `AppDelegate` 의 등록 코드를 지운다.
+- [ ] 개발자 계정에 새 번들 ID(`<bundlePrefix>.<앱 이름 소문자>`, Debug 는 뒤에 `.dev`, Staging 은 `.stg`)로
+      App ID 를 등록하고 **Push Notifications** 기능을 켠다. 엔타이틀먼트에 `aps-environment` 가 있어서, 꺼져 있으면
+      프로비저닝이 실패한다. 자동 서명이면 Xcode 가 등록해 주지만 기능이 켜졌는지 확인한다.
+- [ ] 익스텐션 번들 ID(`<앱 번들 ID>.notificationservice`)도 구성마다 같은 방식으로 등록된다.
+      푸시를 쓰지 않을 앱이면 `App/Project.swift` 의 `entitlements:`·`extensions:`, `App/Extensions/NotificationService/`,
+      `AppDelegate` 의 등록 코드를 지운다.
 - [ ] `Configurations/Signing.xcconfig` 의 `DEVELOPMENT_TEAM` 에 Team ID 를 적어 커밋한다.
 
 **Firebase 를 켜기 전**
 
-- [ ] Firebase 콘솔에서 새 번들 ID 로 앱을 등록하고 `GoogleService-Info.plist` 를 받는다. 없으면 Crashlytics·Analytics·
-      Remote Config 는 초기화를 건너뛰고 로그로만 동작한다(`FirebaseBootstrap`).
+- [ ] Firebase 콘솔에서 Staging(`….stg`)·Release 번들 ID 로 앱을 등록하고, 받은 `GoogleService-Info.plist` 를
+      `Configurations/Firebase/<Staging|Release>/` 에 넣는다(`Configurations/Firebase/README.md`). 없으면 Crashlytics·
+      Analytics·Remote Config 는 초기화를 건너뛰고 로그로만 동작한다(`FirebaseBootstrap`).
 
 **푸시 알림을 실제로 보내기 전**
 
@@ -278,7 +344,14 @@ mise exec -- tuist install && mise exec -- tuist generate
 - [ ] 토큰을 서버로 보낸다. `AppDelegate.application(_:didRegisterForRemoteNotificationsWithDeviceToken:)` 은 지금 로그만
       남긴다. 서버 API 를 `openapi.yaml` 에 추가하고, Repository 를 거쳐 호출한다.
 - [ ] 서버(또는 푸시 서비스)에 APNs 인증 키(.p8)를 등록한다. 키 파일은 저장소에 두지 않는다.
-- [ ] 알림 payload 의 이동 링크 키(`link`)를 서버와 맞춘다(`PushPayload.Key`).
+- [ ] 알림 payload 의 키(이동 링크 `link`, 첨부 이미지 `image_url`)를 서버와 맞춘다(Push 모듈의 `PushPayload.Key`).
+      이미지를 보내려면 서버가 `aps` 에 `mutable-content: 1` 을 넣는다.
+
+**QA 배포(Staging)를 하기 전**
+
+- [ ] `Configurations/Staging.xcconfig` 의 `API_BASE_URL` 을 실제 스테이징 서버로 바꾼다.
+- [ ] TestFlight 로 배포하려면 App Store Connect 에 Staging 번들 ID(`….stg`)로 앱을 따로 만든다. Ad Hoc 이면 기기 등록이 필요하다.
+- [ ] 아카이브는 `TuistApp-Staging` 스킴으로 만든다.
 
 **App Store 에 제출하기 전**
 

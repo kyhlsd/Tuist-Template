@@ -26,7 +26,8 @@ import ProjectDescription
 ///      │      ├───→ Diagnostics
 ///      │      └───→ Networking ──→ OpenAPIRuntime, OpenAPIURLSession, HTTPTypes (외부)
 ///      ├──→ Domain, DesignSystem, Navigation, Networking, Diagnostics
-///      └──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
+///      ├──→ Tracking, FeatureFlags   (전송·값 출처 구현을 꽂기 위해)
+///      └──→ Push                     (payload 규약. 앱 익스텐션도 같은 규칙으로 의존한다)
 ///
 /// Feature 는 Data 나 Networking 을 모른다. Domain 의 프로토콜만 알고,
 /// 실제 구현을 꽂아주는 것은 App 의 역할이다.
@@ -150,6 +151,7 @@ public extension Module {
         .tracking,
         .featureFlags,
         .feature("Home"),
+        .core("Push"),
         // new-module.sh 가 이 줄 위에 추가한다. 지우거나 옮기지 않는다.
     ]
 

@@ -47,8 +47,8 @@ App/Sources/
 │   ├── DeepLinkGate.swift       링크를 지금 열어도 되는지
 │   ├── RootView.swift / TabRootView.swift / View+AppDestinations.swift
 ├── DI/AppContainer+Navigation.swift   AppRoute → 화면
-├── Push/PushPayload.swift              알림 payload → 링크 URL
 └── AppDelegate.swift                   AppRouter 소유, 알림 탭 처리
+Modules/Core/Push/Sources/PushPayload.swift   알림 payload → 링크 URL (익스텐션과 공유)
 ```
 
 의존 방향은 아래로만 흐른다. 피처 Interface가 `Route`를 채택하려고 Navigation에 의존한다.
@@ -97,7 +97,7 @@ import Navigation
 public final class HomeViewModel {
     @ObservationIgnored private let router: any Routing
 
-    public init(repository: any ItemRepository, router: any Routing) { ... }
+    public init(fetchItems: any FetchItemsUseCase, router: any Routing) { ... }
 
     public func select(_ item: Item) {
         router.push(HomeRoute.detail(id: item.id))
@@ -202,10 +202,10 @@ public extension HomeRoute {
 { "aps": { "alert": "새 항목" }, "link": "tuistapp://home/items/42" }
 ```
 
-- 키 이름은 `PushPayload.Key.link` 한 곳에 있다. **서버와 합의한 값으로 맞춘다.**
+- 키 이름은 `PushPayload.Key`(Push 모듈) 한 곳에 있다. **서버와 합의한 값으로 맞춘다.**
 - `link`가 없거나 문자열이 아니거나 비어 있으면 무시한다.
 - 앱을 쓰는 중에도 배너를 보여 준다(`willPresent` → `[.banner, .list, .sound]`). 그래야 탭해서 이동할 수 있다.
-- 알림 권한 요청, 원격 알림 등록, APNs 토큰 전송은 이 모듈 범위가 아니다. 앱에 붙일 때 따로 구현한다.
+- 알림 권한 요청, 원격 알림 등록, APNs 토큰 전송은 이 모듈 범위가 아니다. 등록은 `AppDelegate` 가 하고, 나머지는 루트 README 의 "서명, 푸시, Privacy Manifest" 를 본다.
 
 ---
 
@@ -290,7 +290,7 @@ App 테스트 타깃(`TuistAppTests`)에 있다. 피처를 추가하거나 URL �
 | `HomeRoutePathComponentsTests` | Home 경로 세그먼트 |
 | `AppRouterTests` | 보류·재생, 게이트, 스택 교체, 모달 바인딩 |
 | `ScopedRouterTests` | 문맥별 push/pop, 모달 교체, 닫힌 모달의 늦은 요청 무시 |
-| `PushPayloadTests` | payload → URL |
+| `PushPayloadTests`(Push 모듈) | payload → 링크·이미지 URL |
 | `TuistAppTests` | Info.plist에 URL 스킴이 등록돼 있다 |
 
 ### 시뮬레이터에서 직접 확인

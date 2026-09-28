@@ -25,7 +25,7 @@ struct HomeDemoApp: App {
             NavigationStack(path: $router.path) {
                 HomeView(
                     viewModel: HomeViewModel(
-                        repository: StubItemRepository(result: .success(Item.samples)),
+                        fetchItems: StubFetchItemsUseCase(result: .success(Item.samples)),
                         router: router
                     )
                 )

@@ -14,7 +14,7 @@ import Testing
 @Suite("HomeViewModel")
 struct HomeViewModelTests {
     @Test("불러오기에 성공하면 항목을 보여준다")
-    func load_repositorySucceeds_becomesLoaded() async {
+    func load_useCaseSucceeds_becomesLoaded() async {
         let viewModel = makeViewModel(result: .success(Item.samples))
 
         await viewModel.load()
@@ -23,7 +23,7 @@ struct HomeViewModelTests {
     }
 
     @Test("불러오기에 실패하면 도메인 에러를 담는다")
-    func load_repositoryFails_becomesFailed() async {
+    func load_useCaseFails_becomesFailed() async {
         let viewModel = makeViewModel(result: .failure(.unavailable))
 
         await viewModel.load()
@@ -46,6 +46,6 @@ struct HomeViewModelTests {
         result: Result<[Item], ItemError>,
         router: SpyRouter = SpyRouter()
     ) -> HomeViewModel {
-        HomeViewModel(repository: StubItemRepository(result: result), router: router)
+        HomeViewModel(fetchItems: StubFetchItemsUseCase(result: result), router: router)
     }
 }

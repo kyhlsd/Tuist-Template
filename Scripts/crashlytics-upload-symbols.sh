@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # 앱 타깃의 빌드 스크립트 단계에서 Crashlytics 로 dSYM 을 올린다.
 #
-# Release 이고 App/Resources/GoogleService-Info.plist 가 있을 때만 SDK 의 run 스크립트를 실행한다.
-# 그 밖에는 경고만 남기고 성공으로 끝난다. plist 를 넣기 전에도 Release 빌드가 깨지지 않게 하기 위해서다.
+# Staging·Release 이고 앱 번들에 GoogleService-Info.plist 가 있을 때만 SDK 의 run 스크립트를 실행한다.
+# 번들의 plist 는 firebase-copy-config.sh 가 Configurations/Firebase/<구성>/ 에서 복사해 둔 것이다.
+# 그 밖에는 경고만 남기고 성공으로 끝난다. plist 를 넣기 전에도 빌드가 깨지지 않게 하기 위해서다.
 # Debug 는 dSYM 을 만들지 않는다(DEBUG_INFORMATION_FORMAT = dwarf).
 #
 # SDK 경로는 Tuist 의 checkouts 다. Xcode SPM 의 SourcePackages 경로는 Tuist 에 없다.
 # 이 경로를 읽으려면 앱 타깃의 ENABLE_USER_SCRIPT_SANDBOXING 이 NO 여야 한다(App/Project.swift).
 set -euo pipefail
 
-plist="${SRCROOT}/Resources/GoogleService-Info.plist"
+plist="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/GoogleService-Info.plist"
 run="${SRCROOT}/../Tuist/.build/checkouts/firebase-ios-sdk/Crashlytics/run"
 
-if [[ "${CONFIGURATION:-}" != "Release" ]]; then
+if [[ "${CONFIGURATION:-}" != "Release" && "${CONFIGURATION:-}" != "Staging" ]]; then
     echo "warning: Crashlytics dSYM 업로드를 건너뜁니다(${CONFIGURATION:-알 수 없음} 빌드)."
     exit 0
 fi
