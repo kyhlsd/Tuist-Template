@@ -15,7 +15,7 @@ import Tracking
 
 /// 앱의 조립 지점(composition root).
 ///
-/// 구현 타입(`APIClientFactory`, `KeychainTokenStore`, `RemoteItemRepository`,
+/// 구현 타입(`APIClientFactory`, `AuthSession`, `KeychainTokenStore`, `RemoteItemRepository`,
 /// `DiagnosticReporter`, `CrashlyticsDiagnosticSink`, `LoggerDiagnosticSink`, `NetworkBreadcrumbAdapter`,
 /// `FirebaseEventTracker`, `LoggerEventTracker`, `RemoteConfigFeatureFlagProvider`, `DefaultFeatureFlagProvider`)을
 /// 아는 곳은 여기뿐이다.
@@ -56,17 +56,28 @@ final class AppContainer {
         }
 
         session = APIClientFactory.makeSession()
+        let activityObserver = NetworkBreadcrumbAdapter(recorder: diagnosticSink)
         let logger = Logger(subsystem: bundleIdentifier, category: LogCategory.session)
-        let client = APIClientFactory.make(
-            baseURL: configuration.apiBaseURL,
-            session: session,
-            tokenStore: KeychainTokenStore(service: bundleIdentifier),
-            logSubsystem: bundleIdentifier,
-            activityObserver: NetworkBreadcrumbAdapter(recorder: diagnosticSink),
+        let authSession = AuthSession(
+            store: KeychainTokenStore(service: bundleIdentifier),
+            refresh: APIClientFactory.makeTokenRefresh(
+                baseURL: configuration.apiBaseURL,
+                session: session,
+                logSubsystem: bundleIdentifier,
+                activityObserver: activityObserver
+            ),
             onSessionExpired: {
                 // 로그인 화면이 아직 없으므로 로그만 남긴다. 화면 전환은 범위 밖이다.
                 logger.notice("세션이 만료되어 저장된 토큰을 지웠습니다.")
-            }
+            },
+            logger: logger
+        )
+        let client = APIClientFactory.make(
+            baseURL: configuration.apiBaseURL,
+            session: session,
+            authSession: authSession,
+            logSubsystem: bundleIdentifier,
+            activityObserver: activityObserver
         )
         itemRepository = RemoteItemRepository(client: client, reporter: diagnosticReporter)
     }

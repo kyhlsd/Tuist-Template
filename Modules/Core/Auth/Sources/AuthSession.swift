@@ -1,17 +1,18 @@
 //
-//  TokenRefresher.swift
-//  Networking
+//  AuthSession.swift
+//  Auth
 //
 
-import Auth
 import os
 
-/// 401 을 받은 요청들의 토큰 갱신을 한 번으로 모은다.
+/// 로그인 세션의 토큰을 읽고 갱신한다. 401 을 받은 요청들의 토큰 갱신을 한 번으로 모은다.
+///
+/// Networking 의 인증 미들웨어가 쓴다. refresh 호출 자체는 `Refresh` 로 주입받아 명세·생성 클라이언트를 모른다.
 ///
 /// 진행 중인 갱신이 있으면 새 호출은 그 `Task` 를 기다린다. actor 는 `await` 지점에서
 /// 재진입할 수 있으므로, `inFlight` 확인과 저장은 항상 `await` 없이 이어서 한다.
-actor TokenRefresher {
-    typealias Refresh = @Sendable (_ refreshToken: String) async throws -> AuthTokens
+public actor AuthSession {
+    public typealias Refresh = @Sendable (_ refreshToken: String) async throws -> AuthTokens
 
     private let store: any TokenStore
     private let refresh: Refresh
@@ -30,7 +31,7 @@ actor TokenRefresher {
     ///     `AuthenticationError.sessionExpired` 를 던진다.
     ///   - onSessionExpired: 세션이 끝났을 때 한 번 호출된다.
     ///   - logger: 저장소 실패(갱신은 계속 진행)를 남긴다. 기본값은 아무것도 남기지 않는다.
-    init(
+    public init(
         store: any TokenStore,
         refresh: @escaping Refresh,
         onSessionExpired: @escaping @Sendable () async -> Void,
@@ -42,7 +43,7 @@ actor TokenRefresher {
         self.logger = logger
     }
 
-    func currentAccessToken() async throws -> String? {
+    public func currentAccessToken() async throws -> String? {
         try await loadTokens()?.accessToken
     }
 
@@ -50,7 +51,7 @@ actor TokenRefresher {
     ///
     /// - Parameter rejected: 401 을 받은 요청이 쓴 access token. 저장소의 토큰이 이미
     ///   이것과 다르면 다른 호출이 갱신을 끝낸 것이므로 네트워크 호출 없이 현재 토큰을 쓴다.
-    func refreshedAccessToken(rejected: String?) async throws -> String {
+    public func refreshedAccessToken(rejected: String?) async throws -> String {
         if let inFlight {
             return try await inFlight.value.accessToken
         }
