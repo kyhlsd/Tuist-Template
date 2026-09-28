@@ -45,13 +45,14 @@ public enum APIClientFactory {
     }
 
     /// - Parameters:
-    ///   - authSession: 요청에 붙일 토큰과 401 갱신을 맡는다. refresh 호출은 `makeTokenRefresh` 로 만든 것을 넣는다.
+    ///   - tokenProvider: 요청에 붙일 토큰과 401 갱신을 맡는다. 앱은 `AuthSession` 을 넣고,
+    ///     그 refresh 호출은 `makeTokenRefresh` 로 만든 것을 쓴다.
     ///   - logSubsystem: 요청 로그의 subsystem. 보통 앱의 번들 ID.
     ///   - activityObserver: 요청이 끝날 때마다 요약을 받는다.
     public static func make(
         baseURL: URL,
         session: URLSession,
-        authSession: AuthSession,
+        tokenProvider: any AccessTokenProviding,
         logSubsystem: String,
         activityObserver: any NetworkActivityObserving
     ) -> any APIProtocol {
@@ -62,7 +63,7 @@ public enum APIClientFactory {
                 RequestIDMiddleware(),
                 LoggingMiddleware(subsystem: logSubsystem, observer: activityObserver),
                 RetryMiddleware(maxRetries: NetworkDefaults.maxRetries, baseDelay: NetworkDefaults.retryBaseDelay),
-                AuthMiddleware(session: authSession, publicOperationIDs: PublicOperation.ids),
+                AuthMiddleware(tokenProvider: tokenProvider, publicOperationIDs: PublicOperation.ids),
             ]
         )
     }
