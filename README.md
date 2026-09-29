@@ -254,6 +254,14 @@ tuist inspect dependencies
   `main` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
 - 외부 액션은 커밋 SHA 로 고정돼 있다(뒤에 버전 주석). Dependabot(`.github/dependabot.yml`)이 월 1회
   모든 액션을 PR 하나로 묶어 SHA 와 주석을 함께 올린다. 손으로 올릴 때도 둘을 함께 바꾼다.
+- **SPM·도구 업데이트**는 Renovate(`renovate.json`)가 맡는다. 매월 1일 새벽(서울 시간)에 `Tuist/Package.swift` 의
+  패키지와 `mise.toml` 의 도구(tuist, swiftformat, swiftlint, OpenAPI 생성기)를 PR 하나로 묶어 올린다.
+  firebase-ios-sdk 의 메이저 업데이트(13)는 따로 검토하기로 해서 막아 두었다. Actions 는 위 Dependabot 이 계속 맡는다.
+  - 동작하려면 저장소 관리자가 [Renovate GitHub App](https://github.com/apps/renovate)을 이 저장소에 설치해야 한다.
+    설치하면 온보딩 PR 과 Dependency Dashboard 이슈가 생긴다.
+  - Renovate 가 `Tuist/Package.resolved` 를 갱신하지 않은 PR 이면, 그 브랜치에서 `tuist install --update` 를 돌려
+    `Package.resolved` 를 커밋한다. 커밋하지 않으면 팀원과 CI 는 이전 버전을 계속 받는다.
+  - tuist 버전이 오르면 `Tuist.swift` 의 `compatibleXcodeVersions` 와 CI 러너가 맞는지 PR 의 CI 로 확인한다.
 - PR 본문은 `.github/pull_request_template.md` 가 기본값으로 채운다.
 - CODEOWNERS 는 두지 않았다. 기여자가 둘 이상이 되고 모듈별 리뷰어가 생기면 추가한다.
 
