@@ -18,7 +18,7 @@ set -euo pipefail
 # 워크스페이스 스킴. Tuist/ProjectDescriptionHelpers/Scheme+Workspace.swift 에서 정의한다.
 # 빌드 액션에는 앱·모듈·데모 앱만, 테스트 액션에는 모든 테스트 타깃이 들어 있다.
 # 그래서 `build -configuration Release` 가 테스트 타깃을 컴파일하지 않는다.
-# (앱 스킴 TuistApp 에는 TuistAppTests 만 있다.)
+# (앱 스킴 TuistApp 에는 앱 테스트 TuistAppTests 와 UI 스모크 테스트 TuistAppUITests 만 있다.)
 # 앱 이름을 바꾸면 "<앱 이름>-Workspace" 로 함께 바꾼다.
 SCHEME="TuistApp-Workspace"
 # .xcworkspace와 .xcodeproj가 함께 있거나 경로가 모호할 때만 채웁니다.

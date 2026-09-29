@@ -225,6 +225,7 @@ public extension Project {
                     settings: .settings(base: targetSettings)
                 ),
                 .testTarget(for: name, dependencies: testDependencies),
+                .uiTestTarget(for: name),
             ] + extensionTargets,
             schemes: [.staging(app: name)],
             additionalFiles: documentationFiles
@@ -329,6 +330,26 @@ private extension Target {
         )
     }
 
+    /// 앱의 UI 테스트 타깃(`{name}UITests`). 앱을 실제로 띄워 스모크 테스트만 둔다.
+    ///
+    /// 테스트는 앱 프로세스 밖에서 돌아 앱 코드를 import 할 수 없다. 그래서 앱과의 약속(launch argument,
+    /// 접근성 식별자)을 담은 `UITestLaunchArgument.swift` 를 이 타깃도 함께 컴파일한다.
+    /// 딥링크 스킴은 `rename.sh` 가 바꾸는 `AppConstants.urlScheme` 을 Info.plist 로 넘겨 테스트가 읽는다.
+    static func uiTestTarget(for name: String) -> Target {
+        .target(
+            name: "\(name)UITests",
+            destinations: AppConstants.destinations,
+            product: .uiTests,
+            bundleId: AppConstants.bundleID(for: "\(name)UITests"),
+            deploymentTargets: AppConstants.deploymentTargets,
+            infoPlist: .extendingDefault(with: [
+                UITestInfoKey.appURLScheme: .string(AppConstants.urlScheme),
+            ]),
+            sources: ["UITests/**", "Sources/DI/UITestLaunchArgument.swift"],
+            dependencies: [.target(name: name)]
+        )
+    }
+
     /// 모듈 하나만 띄워보는 데모 앱. feature, core 어느 모듈이든 가질 수 있다.
     ///
     /// 전체 앱을 빌드하지 않고 이 스킴만 실행하면 되므로 반복 속도가 크게 는다.
@@ -352,4 +373,9 @@ private extension Target {
             dependencies: dependencies + [.target(name: name)]
         )
     }
+}
+
+/// UI 테스트 타깃 Info.plist 의 키. 테스트 코드(`TuistAppSmokeUITests`)가 같은 문자열로 읽는다.
+private enum UITestInfoKey {
+    static let appURLScheme = "APP_URL_SCHEME"
 }

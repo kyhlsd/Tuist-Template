@@ -32,7 +32,7 @@ new_prefix="$2"
 
 cd "$root"
 
-# 앱 타깃(<이름>, <이름>Tests), 번들 ID, @testable import 가 기존 모듈과 겹치면 생성·빌드가 깨진다.
+# 앱 타깃(<이름>, <이름>Tests, <이름>UITests), 번들 ID, @testable import 가 기존 모듈과 겹치면 생성·빌드가 깨진다.
 # 모듈의 파생 타깃(<모듈>Interface, <모듈>Testing, <모듈>Tests, <모듈>Demo)도 같은 이름 공간이다.
 # 번들 ID 는 소문자로 만들어지므로 대소문자를 무시하고 비교한다.
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
@@ -47,7 +47,7 @@ for module_dir in Modules/Features/*/ Modules/Core/*/; do
     [[ -d "$module_dir" ]] || continue
     module="$(lower "$(basename "$module_dir")")"
     for taken in "$module" "${module}interface" "${module}testing" "${module}tests" "${module}demo"; do
-        [[ "$new_lower" != "$taken" && "${new_lower}tests" != "$taken" ]] ||
+        [[ "$new_lower" != "$taken" && "${new_lower}tests" != "$taken" && "${new_lower}uitests" != "$taken" ]] ||
             die "기존 모듈(${module_dir%/})의 타깃 이름과 겹칩니다: $new_name"
     done
 done

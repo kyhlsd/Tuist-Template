@@ -175,12 +175,22 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 
 | 스킴 | 실행(⌘R) | 테스트(⌘U) |
 | --- | --- | --- |
-| `TuistApp` | 앱 | 앱 테스트만 |
+| `TuistApp` | 앱 | 앱 테스트와 UI 스모크 테스트 |
 | `TuistApp-Staging` | 앱 (Staging) | 없음. Staging 아카이브(QA 배포)용 |
-| `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트 (빌드는 앱·모듈·데모 앱만. `Scheme+Workspace.swift`. 배포 아카이브는 `TuistApp` 스킴으로) |
+| `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트와 앱 UI 스모크 테스트 (빌드는 앱·모듈·데모 앱만. `Scheme+Workspace.swift`. 배포 아카이브는 `TuistApp` 스킴으로) |
 | `Home` | HomeDemo | HomeTests |
 | `DesignSystem` | DesignSystemDemo (카탈로그) | DesignSystemTests |
 | `NotificationService` | 익스텐션 (실행 시 호스트 앱을 고른다) | 없음 |
+
+**UI 스모크 테스트**(`App/UITests`, `TuistAppUITests`)는 앱을 실제로 띄워 탭 전환과 딥링크만 확인한다.
+`-UITestStubItems` 인자로 실행하면 앱이 항목 저장소를 네트워크 대신 고정 항목 하나(`UITestItemRepository`)로 바꾼다.
+이 분기는 DEBUG 에서만 켜지고 Release 에는 코드가 없다. 앱과 테스트가 공유하는 인자·식별자는
+`App/Sources/DI/UITestLaunchArgument.swift` 한 파일에 있고 두 타깃이 함께 컴파일한다.
+"더보기" 탭은 탭 전환을 보여주는 자리표시자다. 실제 탭을 만들면 교체한다.
+
+```bash
+./.claude/scripts/xcbuild.sh test -only-testing:TuistAppUITests
+```
 
 ## CI
 

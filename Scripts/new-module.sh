@@ -64,13 +64,13 @@ for reserved in swift foundation swiftui uikit combine observation dispatch swif
     [[ "$name_lower" != "$reserved" ]] || die "시스템 모듈과 같은 이름은 쓸 수 없습니다: $name"
 done
 
-# 새 모듈과 파생 타깃이 앱 타깃(<앱>, <앱>Tests)과 겹치면 안 된다. Scripts/rename.sh 는 반대 방향을 본다.
+# 새 모듈과 파생 타깃이 앱 타깃(<앱>, <앱>Tests, <앱>UITests)과 겹치면 안 된다. Scripts/rename.sh 는 반대 방향을 본다.
 app_name="$(perl -ne 'print $1 if /static let appName = "([^"]*)"/' "$root/Tuist/ProjectDescriptionHelpers/AppConstants.swift")"
 [[ -n "$app_name" ]] || die "Tuist/ProjectDescriptionHelpers/AppConstants.swift 에서 appName 을 읽지 못했습니다."
 app_lower="$(lower "$app_name")"
 mine=("$name_lower" "${name_lower}interface" "${name_lower}testing" "${name_lower}tests" "${name_lower}demo")
 for derived in "${mine[@]}"; do
-    [[ "$derived" != "$app_lower" && "$derived" != "${app_lower}tests" ]] ||
+    [[ "$derived" != "$app_lower" && "$derived" != "${app_lower}tests" && "$derived" != "${app_lower}uitests" ]] ||
         die "앱($app_name)의 타깃 이름과 겹칩니다: $name"
 done
 
