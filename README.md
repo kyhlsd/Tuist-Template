@@ -47,7 +47,7 @@ Modules/
     FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
     Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter, NavigationDemo: 스택·모달 조작)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
-    Push/                   푸시 payload 규약. 앱과 알림 익스텐션이 함께 쓴다
+    Push/                   푸시 payload 규약과 알림 첨부 판정. 앱과 알림 익스텐션이 함께 쓴다
   Features/
     Home/                   Interface(HomeRoute) / 구현 / Tests / Demo
 Configurations/             환경별 xcconfig (Debug, Staging, Release, ClientKeys, Signing)
@@ -143,7 +143,7 @@ extensions: [
 - 소스는 `App/Extensions/<Name>/Sources/` 에 둔다. 번들 ID 는 `<앱 번들 ID>.<name 소문자>` 이고,
   버전·환경 접미사·서명은 앱과 같은 xcconfig 를 따른다.
 - 모듈 의존은 앱과 같은 규칙이다(`*Testing` 불가). 앱과 나눌 로직은 익스텐션에 복사하지 않고 Core 모듈로 둔다.
-  익스텐션 타깃에는 테스트 타깃이 없으므로, 검증할 로직도 모듈로 빼서 모듈 테스트로 확인한다(예: `PushPayloadTests`).
+  익스텐션 타깃에는 테스트 타깃이 없으므로, 검증할 로직도 모듈로 빼서 모듈 테스트로 확인한다(예: `PushPayloadTests`, `PushImageAttachmentTests`).
 - 샘플 `NotificationService` 는 payload 의 `image_url`(https 만)을 내려받아 첨부한다. 알림에 `mutable-content: 1` 이
   있어야 불린다. 다운로드는 20초에서 끊어 시스템 제한(약 30초) 전에 항상 돌아온다.
 - 위젯·공유 익스텐션처럼 앱과 데이터를 나누면 앱과 익스텐션 양쪽 `entitlements` 에 같은 App Group 을 넣는다.

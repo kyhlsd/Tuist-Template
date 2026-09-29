@@ -79,6 +79,8 @@ Domain 을 모르므로 `Item` 같은 엔티티와의 변환은 Data 가 맡는�
   원격이 401 도 `.unavailable` 로 올리므로 비우지 않으면 이전 계정의 항목이 보인다.
   Keychain 을 읽지 못해도(예: 첫 잠금 해제 전 백그라운드 실행) 첫 상태가 `.signedOut` 이라 로그인한 사용자의 캐시도
   비워진다. 그 상태에서는 원격도 인증할 수 없어 잃는 것은 캐시뿐이다.
+  지금은 첫 잠금 해제 전에 실행될 경로(백그라운드 모드·BGTask·silent push)가 없다. 그런 경로를 추가하면,
+  읽기 실패를 `.signedOut` 과 구분하도록 다시 검토한다.
 - 비우기와 쓰기는 Data 의 `ItemCacheWriter` 가 요청 시작 순서로 판단하고, 캐시 호출도 그 순서대로 하나씩 실행한다.
   `ItemCache` 구현 안에 중단 지점이 있거나 호출 우선순위가 달라도 비운 캐시에 이전 요청의 목록이 다시 쓰이지 않는다.
 - 저장소는 앱 그룹·CloudKit 을 쓰지 않는다고 명시한다(`groupContainer: .none`, `cloudKitDatabase: .none`).
