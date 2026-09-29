@@ -18,20 +18,35 @@ public enum PushImageAttachment {
     /// 내려받은 파일을 옮길 경로. `directory/name.<확장자>` 다.
     ///
     /// 시스템은 확장자로 첨부 형식을 판단한다. 내려받은 임시 파일에는 확장자가 없으므로 붙인다.
-    /// 확장자는 응답이 제안한 파일 이름, 요청 URL, MIME 타입 순으로 찾아 비어 있지 않은 첫 값을 쓴다.
-    /// iOS 에서는 헤더도 URL 확장자도 없으면 제안 파일 이름이 "Unknown" 이라 확장자가 비므로 MIME 타입까지 봐야 한다.
-    /// (macOS Foundation 은 같은 경우 MIME 타입 확장자를 붙여 돌려준다. 여기 규칙은 iOS 에서 관찰한 동작 기준이다.)
-    /// 셋 다 없으면 확장자 없이 두고, 첨부 생성이 실패한다.
+    /// 확장자는 `Content-Disposition` 파일 이름, 요청 URL, 응답 URL, MIME 타입 순으로 찾아 비어 있지 않은 첫 값을 쓴다.
+    /// 넷 다 없으면 확장자 없이 두고, 첨부 생성이 실패한다.
+    ///
+    /// `suggestedFilename` 은 헤더가 있을 때만 쓴다. 헤더가 없을 때 Foundation 이 URL·MIME 타입으로 합성하는 값은
+    /// OS 버전마다 다르다(iOS 26 은 "Unknown", iOS 27·macOS 는 MIME 타입 확장자를 붙인다). 그 값에 기대면
+    /// 같은 응답의 확장자가 기기마다 달라진다.
     public static func fileURL(for response: URLResponse, requestURL: URL, in directory: URL, name: String) -> URL {
         let candidates = [
-            response.suggestedFilename.map { ($0 as NSString).pathExtension },
+            contentDispositionFilename(of: response).map { ($0 as NSString).pathExtension },
             requestURL.pathExtension,
+            response.url?.pathExtension,
             response.mimeType.flatMap { MIMEType.fileExtensions[$0] },
         ]
         let fileExtension = candidates.compactMap(\.self).first { !$0.isEmpty } ?? ""
         return directory
             .appendingPathComponent(name)
             .appendingPathExtension(fileExtension)
+    }
+
+    /// `Content-Disposition` 헤더가 있을 때 Foundation 이 해석한 파일 이름. 헤더 해석은 Foundation 에 맡긴다.
+    private static func contentDispositionFilename(of response: URLResponse) -> String? {
+        guard (response as? HTTPURLResponse)?.value(forHTTPHeaderField: Header.contentDisposition) != nil else {
+            return nil
+        }
+        return response.suggestedFilename
+    }
+
+    private enum Header {
+        static let contentDisposition = "Content-Disposition"
     }
 
     private enum Status {
