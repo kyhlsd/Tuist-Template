@@ -62,6 +62,11 @@ Tuist/ProjectDescriptionHelpers/
 
 의존 방향과 각 모듈의 역할은 `Module.swift` 상단 주석이 기준이다.
 
+![모듈 의존 그래프(테스트 타깃·외부 패키지 제외)](docs/images/module-graph.svg)
+
+그래프는 `Scripts/module-graph.sh` 가 `tuist graph` 로 만든다(graphviz 필요). CI 가 최신인지 검사하지 않으므로
+모듈이나 의존을 바꾸면 다시 돌려 함께 커밋한다.
+
 ## 화면 이동
 
 MVVM + Router. 최상위는 TabView 이고, 탭마다 `Router` 하나와 `NavigationStack` 하나를 가진다.
@@ -290,6 +295,7 @@ mise exec -- tuist generate
 - 새 Core 모듈을 다른 모듈이 쓰거나, 이 모듈(테스트·데모 포함)이 다른 모듈을 쓰면
   `Module.swift` 의 `mayDepend(on:)` 에 `(.feature, .core("Payments"))`, `(.core("Payments"), .domain)` 같은 규칙을 더한다.
   없으면 generate 가 문구 없이 멈춘다. App 은 규칙 없이 의존할 수 있다.
+- 모듈이 늘었으니 `Scripts/module-graph.sh` 로 README 의 의존 그래프를 다시 만든다.
 - `Project+Templates.swift` 나 DesignSystem API 를 바꾸면 템플릿(`Tuist/Templates/`)이 따라가지 못할 수 있다.
   바꾼 뒤 `new-module.sh` 로 한 번 만들어 generate·빌드해 보고 지운다.
 
