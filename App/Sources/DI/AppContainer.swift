@@ -95,10 +95,14 @@ final class AppContainer {
     }
 
     /// 세션 상태를 구독해 로그인 상태가 아니게 될 때마다 항목 캐시를 비운다. 세션 상태 스트림은 끝나지 않으므로 앱 수명 동안 돈다.
-    private static func startClearingItemCache(
+    ///
+    /// 앱은 돌려받은 Task 를 버린다. 테스트는 끝나는 상태 스트림을 넘기고 Task 를 기다려 연결을 확인한다
+    /// (`AppContainerItemCacheInvalidationTests`).
+    @discardableResult
+    static func startClearingItemCache(
         of repository: CachedItemRepository,
         whenSignedOutIn authRepository: any AuthRepository
-    ) {
+    ) -> Task<Void, Never> {
         Task {
             await clearItemCacheWhenSignedOut(statuses: authRepository.sessionStatuses(), clear: repository.clearCache)
         }

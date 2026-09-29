@@ -3,14 +3,36 @@
 //  TuistAppTests
 //
 
+import Data
+import DiagnosticsTesting
 import Domain
+import DomainTesting
+import Persistence
+import PersistenceTesting
 import Testing
 @testable import TuistApp
 
-/// 세션 상태에 따라 항목 캐시를 비우는 분기를 고정한다.
+/// 세션 상태에 따라 항목 캐시를 비우는 분기와, 그 분기를 실제 Repository 에 잇는 조립을 고정한다.
 @MainActor
 @Suite("AppContainer 항목 캐시 비우기")
 struct AppContainerItemCacheInvalidationTests {
+    @Test("세션 상태 구독이 로그아웃 때 Repository 의 캐시를 비운다")
+    func startClearingItemCache_signedOut_clearsRepositoryCache() async {
+        let cache = InMemoryItemCache(records: [ItemCacheRecord(id: "9", title: "이전 계정 항목")])
+        let repository = CachedItemRepository(
+            remote: StubItemRepository(result: .success([])),
+            cache: cache,
+            reporter: SpyDiagnosticReporter()
+        )
+
+        await AppContainer.startClearingItemCache(
+            of: repository,
+            whenSignedOutIn: StubAuthRepository(statuses: [.signedOut])
+        ).value
+
+        #expect(await cache.removeAllCount == 1)
+    }
+
     @Test("로그인 상태가 아니게 되면 캐시를 비운다", arguments: [SessionStatus.signedOut, .expired])
     func clearItemCache_whenNotSignedIn_clearsOnce(status: SessionStatus) async {
         var clearCount = 0

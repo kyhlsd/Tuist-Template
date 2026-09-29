@@ -114,9 +114,10 @@ struct CachedItemRepositoryTests {
 
     @Test("취소된 호출은 캐시가 있어도 unavailable 을 던진다")
     func fetchItems_cancelledWhileRemoteUnavailable_throwsUnavailableWithoutCache() async {
+        let cache = InMemoryItemCache(records: cachedRecords)
         let repository = CachedItemRepository(
             remote: StubItemRepository(result: .failure(.unavailable)),
-            cache: InMemoryItemCache(records: cachedRecords),
+            cache: cache,
             reporter: reporter
         )
 
@@ -128,6 +129,7 @@ struct CachedItemRepositoryTests {
         await #expect(throws: ItemError.unavailable) {
             try await task.value
         }
+        #expect(await cache.loadCount == 0)
     }
 
     @Test("먼저 시작한 요청이 나중에 끝나도 늦게 시작한 요청의 결과가 캐시에 남는다")

@@ -35,6 +35,8 @@ let project = Project.app(
     ],
     testDependencies: [
         .testing(.diagnostics), // 보고를 기록하는 SpyDiagnosticReporter
+        .testing(.domain), // 캐시 비우기 연결 테스트의 StubAuthRepository, StubItemRepository
+        .testing(.core("Persistence")), // 캐시 비우기 연결 테스트의 InMemoryItemCache
     ],
     targetSettings: [
         // Firebase 정적 라이브러리의 Objective-C 카테고리를 링크한다.

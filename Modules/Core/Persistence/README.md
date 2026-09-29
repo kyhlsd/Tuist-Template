@@ -77,6 +77,13 @@ Domain 을 모르므로 `Item` 같은 엔티티와의 변환은 Data 가 맡는�
 - 캐시 만료·신선도 정책은 아직 없다. 원격이 `.unavailable` 일 때 마지막 결과를 그대로 돌려준다.
 - 로그인 상태가 아니게 되면(로그아웃·만료) App 이 Data 의 `CachedItemRepository.clearCache()` 로 캐시를 비운다.
   원격이 401 도 `.unavailable` 로 올리므로 비우지 않으면 이전 계정의 항목이 보인다.
+  Keychain 을 읽지 못해도(예: 첫 잠금 해제 전 백그라운드 실행) 첫 상태가 `.signedOut` 이라 로그인한 사용자의 캐시도
+  비워진다. 그 상태에서는 원격도 인증할 수 없어 잃는 것은 캐시뿐이다.
+- 비우기와 쓰기는 Data 의 `ItemCacheWriter` 가 요청 시작 순서로 판단하고, 캐시 호출도 그 순서대로 하나씩 실행한다.
+  `ItemCache` 구현 안에 중단 지점이 있거나 호출 우선순위가 달라도 비운 캐시에 이전 요청의 목록이 다시 쓰이지 않는다.
+- 저장소는 앱 그룹·CloudKit 을 쓰지 않는다고 명시한다(`groupContainer: .none`, `cloudKitDatabase: .none`).
+  `.automatic` 이면 앱 그룹 엔타이틀먼트를 더하는 순간 위치가 그룹 컨테이너로 바뀌어 기존 캐시를 잃는다.
+  공유가 필요해지면 이동 절차와 함께 따로 정한다.
 - 디스크 저장소를 열지 못하면 App 이 보고하고 메모리 저장소로 연다. 이때 캐시는 앱 수명 동안만 남는다.
 - 기기에는 Application Support 의 저장소 파일(`Persistence.store`)과 `persistence.` 접두사 UserDefaults 키가 남는다.
   저장소 파일 이름은 배포한 뒤에 바꾸지 않는다(바꾸면 기존 캐시를 잃는다).

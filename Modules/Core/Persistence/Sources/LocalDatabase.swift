@@ -23,12 +23,24 @@ public struct LocalDatabase: Sendable {
     /// - Throws: 저장소를 열 수 없으면 `.storeUnavailable`.
     public init(location: Location) throws(PersistenceError) {
         let schema = Schema(versionedSchema: PersistenceSchemaV1.self)
+        // 앱 그룹·CloudKit 은 `.automatic` 이면 엔타이틀먼트가 붙는 순간 위치가 그룹 컨테이너로 조용히 바뀌거나
+        // (`@Attribute(.unique)` 때문에) CloudKit 저장소 열기가 실패한다. 둘 다 쓰지 않는다고 명시한다.
         let configuration = switch location {
         case .onDisk:
-            ModelConfiguration(StoreName.onDisk, schema: schema)
+            ModelConfiguration(
+                StoreName.onDisk,
+                schema: schema,
+                groupContainer: .none,
+                cloudKitDatabase: .none
+            )
         case .inMemory:
             // 이름을 주지 않는다. 컨테이너마다 따로인 저장소라 테스트끼리 섞이지 않는다.
-            ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: true,
+                groupContainer: .none,
+                cloudKitDatabase: .none
+            )
         }
         do {
             container = try ModelContainer(
