@@ -88,7 +88,10 @@ final class AppContainer {
             cache: SwiftDataItemCache(database: localDatabase),
             reporter: diagnosticReporter
         )
-        itemRepository = cachedItemRepository
+        itemRepository = Self.makeItemRepository(
+            default: cachedItemRepository,
+            arguments: ProcessInfo.processInfo.arguments
+        )
         authRepository = RemoteAuthRepository(client: client, session: authSession, reporter: diagnosticReporter)
         settingsRepository = LocalSettingsRepository(store: UserDefaultsKeyValueStore(), reporter: diagnosticReporter)
         Self.startClearingItemCache(of: cachedItemRepository, whenSignedOutIn: authRepository)
@@ -121,6 +124,19 @@ final class AppContainer {
                 await clear()
             }
         }
+    }
+
+    /// UI 테스트가 `UITestLaunchArgument.stubItems` 로 실행했으면 고정 항목 저장소를, 아니면 `default` 를 쓴다.
+    ///
+    /// DEBUG 에서만 인자를 본다. Release 는 인자와 상관없이 `default` 다.
+    /// 캐시 비우기 연결은 이 선택과 상관없이 실제 캐시 저장소에 붙는다. 분기는 `AppContainerItemRepositoryTests` 가 고정한다.
+    static func makeItemRepository(default repository: any ItemRepository, arguments: [String]) -> any ItemRepository {
+        #if DEBUG
+            if arguments.contains(UITestLaunchArgument.stubItems) {
+                return UITestItemRepository()
+            }
+        #endif
+        return repository
     }
 
     /// 디스크 저장소를 연다. 열지 못하면 보고하고 메모리 저장소로 연다.

@@ -3,6 +3,7 @@
 //  TuistApp
 //
 
+import DesignSystem
 import SwiftUI
 
 /// 탭 하나의 내비게이션 스택.
@@ -26,6 +27,10 @@ struct TabRootView: View {
         switch tab {
         case .home:
             container.makeHomeView(router: router.router(for: tab))
+        case .more:
+            AppStatusView.empty(title: String(localized: "준비 중인 화면입니다"))
+                .navigationTitle(tab.title)
+                .accessibilityIdentifier(UITestLaunchArgument.morePlaceholderIdentifier)
         }
     }
 }
