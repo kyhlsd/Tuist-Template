@@ -40,12 +40,12 @@ Modules/
     Domain/                 엔티티, 에러, Repository 프로토콜, UseCase (+ DomainTesting: 스텁·픽스처)
     Data/                   Repository 구현(원격, 캐시 데코레이터, 설정), DTO
     Networking/             OpenAPI 생성 클라이언트, 미들웨어
-    Auth/                   토큰 모델·저장소·갱신·세션 상태(AuthSession) (+ AuthTesting: InMemoryTokenStore)
-    Persistence/            키-값 설정(UserDefaults), SwiftData 오프라인 캐시 (+ PersistenceTesting: 인메모리·실패 저장소)
+    Auth/                   토큰 모델·저장소·갱신·세션 상태(AuthSession) (+ AuthTesting: InMemoryTokenStore, AuthDemo: Keychain 저장·세션 상태 전이)
+    Persistence/            키-값 설정(UserDefaults), SwiftData 오프라인 캐시 (+ PersistenceTesting: 인메모리·실패 저장소, PersistenceDemo: 재실행 뒤 디스크 값 확인)
     Diagnostics/            진단 타입, 중복 억제 보고기, 로그 싱크 (+ DiagnosticsTesting: 스파이)
     Tracking/               이벤트 기록 프로토콜, 로그 기록기 (+ TrackingTesting: 스파이)
     FeatureFlags/           Bool 플래그 선언·조회 프로토콜, 기본값 제공자 (+ FeatureFlagsTesting: 스텁)
-    Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter)
+    Navigation/             Router(스택 상태), Routing(이동 요청) (+ NavigationTesting: SpyRouter, NavigationDemo: 스택·모달 조작)
     DesignSystem/           토큰, 컴포넌트 (+ DesignSystemDemo: 카탈로그 앱)
     Push/                   푸시 payload 규약. 앱과 알림 익스텐션이 함께 쓴다
   Features/
@@ -185,7 +185,15 @@ Tuist 는 프로젝트마다 스킴 하나를 만든다. 데모 타깃은 그 �
 | `TuistApp-Workspace` | 앱 | 모든 모듈의 테스트와 앱 UI 스모크 테스트 (빌드는 앱·모듈·데모 앱만. `Scheme+Workspace.swift`. 배포 아카이브는 `TuistApp` 스킴으로) |
 | `Home` | HomeDemo | HomeTests |
 | `DesignSystem` | DesignSystemDemo (카탈로그) | DesignSystemTests |
+| `Navigation` | NavigationDemo (Router 스택·모달) | NavigationTests |
+| `Persistence` | PersistenceDemo (재실행 뒤 SwiftData·UserDefaults 값) | PersistenceTests |
+| `Auth` | AuthDemo (Keychain 토큰·세션 상태 전이) | AuthTests |
 | `NotificationService` | 익스텐션 (실행 시 호스트 앱을 고른다) | 없음 |
+
+데모 앱은 단위 테스트로는 확인할 수 없고 실제로 띄워 봐야 보이는 동작(실제 화면 전환, 실제 디스크, 실제 Keychain)이
+있는 모듈에만 둔다. Domain·Data 는 프로토콜과 구현이라 화면이 없고, Data 를 띄우면 앱을 다시 만드는 셈이다.
+Networking 은 서버가 필요하고 미들웨어는 테스트가 덮는다. Diagnostics·Tracking 은 로그 한 줄, FeatureFlags 는
+기본값 제공자, Push 는 파싱 함수뿐이라 테스트로 충분하다.
 
 **UI 스모크 테스트**(`App/UITests`, `TuistAppUITests`)는 앱을 실제로 띄워 탭 전환과 딥링크만 확인한다.
 `-UITestStubItems` 인자로 실행하면 앱이 항목 저장소를 네트워크 대신 고정 항목 하나(`UITestItemRepository`)로 바꾼다.
@@ -419,7 +427,7 @@ import 하는 모듈이 해당 타깃의 `*Dependencies` 에 빠져 있으면 �
 위 "처음 실행" 의 `xcode-build-server config` 를 다시 실행한 뒤 한 번 빌드한다.
 
 **앱은 빌드되는데 데모 타깃이 깨져 있다** — `TuistApp` 스킴은 앱과 그 의존성만 빌드해서
-`HomeDemo` · `DesignSystemDemo` 의 컴파일 에러를 놓친다. `TuistApp-Workspace` 는 데모까지
+데모 앱(`Module.withDemoApp` 에 등록된 모든 `<Name>Demo`)의 컴파일 에러를 놓친다. `TuistApp-Workspace` 는 데모까지
 포함하므로, 커밋 전 검증은 이 스킴으로 한다(`.claude/scripts/xcbuild.sh` 가 쓰는 스킴이다).
 
 Claude Code 쪽 문제(훅이 안 돈다, LSP 가 붙지 않는다 등)는
