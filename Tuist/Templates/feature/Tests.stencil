@@ -1,16 +1,24 @@
 //
-//  {{ name }}Tests.swift
+//  {{ name }}ViewModelTests.swift
 //  {{ name }}Tests
 //
 
+import {{ name }}
 import {{ name }}Interface
+import NavigationTesting
 import Testing
 
-/// 테스트 타깃이 비지 않게 스캐폴드가 만든 자리표시 테스트다. 실제 동작을 테스트하면 지운다.
-@Suite("{{ name }}")
-struct {{ name }}Tests {
-    @Test("같은 Route 는 같다")
-    func route_sameCase_isEqual() {
-        #expect({{ name }}Route.main == .main)
+/// 스캐폴드가 만든 자리표시 테스트다. 뷰모델을 바꾸면 함께 바꾼다.
+@MainActor
+@Suite("{{ name }}ViewModel")
+struct {{ name }}ViewModelTests {
+    @Test("다음 화면 요청은 상세 Route 를 push 한다")
+    func showDetail_pushesDetailRoute() {
+        let router = SpyRouter()
+        let viewModel = {{ name }}ViewModel(router: router)
+
+        viewModel.showDetail()
+
+        #expect(router.pushedRoutes == [{{ name }}Route.detail])
     }
 }

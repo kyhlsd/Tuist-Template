@@ -8,9 +8,19 @@ import SwiftUI
 
 /// {{ name }} 의 첫 화면. 스캐폴드가 만든 자리표시 화면이다.
 public struct {{ name }}View: View {
-    public init() {}
+    @State private var viewModel: {{ name }}ViewModel
+
+    public init(viewModel: {{ name }}ViewModel) {
+        _viewModel = State(initialValue: viewModel)
+    }
 
     public var body: some View {
-        AppStatusView.empty(title: String(localized: "{{ name }}"{% if resources == "true" %}, bundle: .module{% endif %}))
+        AppStatusView.empty(
+            title: String(localized: "{{ name }}"{% if resources == "true" %}, bundle: .module{% endif %}),
+            action: AppStatusAction(
+                title: String(localized: "다음"{% if resources == "true" %}, bundle: .module{% endif %}),
+                handler: viewModel.showDetail
+            )
+        )
     }
 }

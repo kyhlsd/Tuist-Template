@@ -19,11 +19,12 @@ struct {{ name }}DemoApp: App {
     var body: some Scene {
         WindowGroup {
             NavigationStack(path: $router.path) {
-                {{ name }}View()
+                {{ name }}View(viewModel: {{ name }}ViewModel(router: router))
                     .navigationDestination(for: {{ name }}Route.self) { route in
                         switch route {
-                        case .main:
-                            {{ name }}View()
+                        case .detail:
+                            // 스캐폴드의 자리표시 목적지. 실제 상세 화면이 생기면 바꾼다.
+                            {{ name }}View(viewModel: {{ name }}ViewModel(router: router))
                         }
                     }
             }

@@ -1,0 +1,62 @@
+# 모듈 템플릿(Tuist/Templates)으로 만든 모듈이 그대로 CI 를 통과하는지 확인한다. 내용은 Scripts/verify-templates.sh 에 있다.
+#
+# 템플릿·헬퍼·모듈 생성 스크립트·도구 버전·스캐폴드가 쓰는 모듈 API 가 바뀐 PR 과 main 푸시에서만 돈다.
+# 스텐실이 새 모듈 API 를 쓰게 되면 그 경로를 아래 paths 두 곳에 함께 더한다. 사본을 처음부터 빌드하므로 몇 분 걸린다.
+# 경로 필터가 있어 관련 없는 PR 에서는 잡이 아예 생기지 않는다. 그래서 브랜치 보호의 required check 로 걸면
+# 그런 PR 이 "대기 중"으로 막힌다. required 로 걸지 않는다.
+# 러너·액션 고정 방식은 ci.yml 과 같다.
+name: Templates
+
+on:
+  pull_request:
+    paths:
+      - "Tuist/**"
+      - "Scripts/new-module.sh"
+      - "Scripts/verify-templates.sh"
+      - "mise.toml"
+      - ".swiftlint.yml"
+      - ".swiftformat"
+      - ".github/workflows/templates.yml"
+      # 스캐폴드가 쓰는 모듈 API(AppStatusView·AppStatusAction·theme, Routing·Router, SpyRouter)와 스크립트가 부르는 것.
+      - "Modules/Core/DesignSystem/Sources/**"
+      - "Modules/Core/Navigation/**"
+      - ".claude/scripts/xcbuild.sh"
+      - ".github/actions/setup/**"
+  push:
+    branches: [main]
+    paths:
+      - "Tuist/**"
+      - "Scripts/new-module.sh"
+      - "Scripts/verify-templates.sh"
+      - "mise.toml"
+      - ".swiftlint.yml"
+      - ".swiftformat"
+      - ".github/workflows/templates.yml"
+      # 스캐폴드가 쓰는 모듈 API(AppStatusView·AppStatusAction·theme, Routing·Router, SpyRouter)와 스크립트가 부르는 것.
+      - "Modules/Core/DesignSystem/Sources/**"
+      - "Modules/Core/Navigation/**"
+      - ".claude/scripts/xcbuild.sh"
+      - ".github/actions/setup/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: templates-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  verify-templates:
+    runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 45
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 도구 설치와 SPM 의존성(Tuist/.build). 스크립트가 이 체크아웃을 사본으로 링크해 다시 받지 않는다.
+      - name: 셋업
+        uses: ./.github/actions/setup
+
+      - name: 템플릿 검증
+        run: Scripts/verify-templates.sh

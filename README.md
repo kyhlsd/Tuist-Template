@@ -259,6 +259,9 @@ tuist inspect dependencies
   `main` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
 - 외부 액션은 커밋 SHA 로 고정돼 있다(뒤에 버전 주석). Dependabot(`.github/dependabot.yml`)이 월 1회
   모든 액션을 PR 하나로 묶어 SHA 와 주석을 함께 올린다. 손으로 올릴 때도 둘을 함께 바꾼다.
+- **템플릿 검증**: `.github/workflows/templates.yml` 이 `Tuist/**`, `Scripts/new-module.sh`, `mise.toml` 등이 바뀐 PR 에서만
+  `Scripts/verify-templates.sh` 를 돌린다(스캐폴드가 쓰는 DesignSystem·Navigation API 가 바뀐 PR 포함). 작업 트리 사본에 core·feature 모듈을 모든 옵션으로, 또 옵션 없이 만들어 포맷·린트, generate,
+  의존성 검사, 빌드, 새 모듈 테스트까지 한다. 경로 필터 때문에 관련 없는 PR 에서는 잡이 생기지 않으므로 required check 로 걸지 않는다.
 - **SPM·도구 업데이트**는 Renovate(`renovate.json`)가 맡는다. 매월 1일 새벽(서울 시간)에 `Tuist/Package.swift` 의
   패키지와 `mise.toml` 의 도구(tuist, swiftformat, swiftlint, OpenAPI 생성기)를 PR 하나로 묶어 올린다.
   firebase-ios-sdk 의 메이저 업데이트(13)는 따로 검토하기로 해서 막아 두었다. Actions 는 위 Dependabot 이 계속 맡는다.
@@ -297,7 +300,8 @@ mise exec -- tuist generate
   없으면 generate 가 문구 없이 멈춘다. App 은 규칙 없이 의존할 수 있다.
 - 모듈이 늘었으니 `Scripts/module-graph.sh` 로 README 의 의존 그래프를 다시 만든다.
 - `Project+Templates.swift` 나 DesignSystem API 를 바꾸면 템플릿(`Tuist/Templates/`)이 따라가지 못할 수 있다.
-  바꾼 뒤 `new-module.sh` 로 한 번 만들어 generate·빌드해 보고 지운다.
+  `Scripts/verify-templates.sh` 가 작업 트리 사본에서 모든 옵션으로 모듈을 만들어 generate·inspect·빌드·테스트까지 해 본다
+  (원본은 건드리지 않는다). CI 도 `Tuist/**` 등이 바뀐 PR 에서 같은 검사를 돈다.
 
 스크립트가 하는 일(손으로 할 때도 같다):
 
