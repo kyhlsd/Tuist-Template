@@ -97,6 +97,34 @@ struct RetryMiddlewareTests {
         #expect(await next.callCount == 1)
     }
 
+    @Test("다시 읽을 수 있는 body 를 실은 멱등 메서드는 다시 보낸다")
+    func intercept_multipleIterationBody_retries() async throws {
+        let next = ScriptedNext([.success(.serviceUnavailable), .success(.ok)])
+        let middleware = RetryMiddleware(maxRetries: 2, baseDelay: .milliseconds(500), sleep: { _ in })
+        let body = HTTPBody([UInt8](), length: .known(0), iterationBehavior: .multiple)
+
+        let (response, _) = try await middleware.intercept(
+            request(.put), body: body, baseURL: baseURL, operationID: operationID, next: next.call
+        )
+
+        #expect(response.status == .ok)
+        #expect(await next.callCount == 2)
+    }
+
+    @Test("한 번만 읽을 수 있는 body 는 멱등 메서드라도 다시 보내지 않는다")
+    func intercept_singleIterationBody_doesNotRetry() async throws {
+        let next = ScriptedNext([.success(.serviceUnavailable), .success(.ok)])
+        let middleware = RetryMiddleware(maxRetries: 2, baseDelay: .milliseconds(500), sleep: { _ in })
+        let body = HTTPBody([UInt8](), length: .known(0), iterationBehavior: .single)
+
+        let (response, _) = try await middleware.intercept(
+            request(.put), body: body, baseURL: baseURL, operationID: operationID, next: next.call
+        )
+
+        #expect(response.status == .serviceUnavailable)
+        #expect(await next.callCount == 1)
+    }
+
     @Test("취소는 다시 보내지 않고 그대로 던진다", arguments: [
         CancellationKind.urlCancelled,
         CancellationKind.taskCancelled,
