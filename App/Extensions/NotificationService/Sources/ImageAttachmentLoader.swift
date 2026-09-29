@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Push
 import UserNotifications
 
 /// 이미지를 내려받아 알림 첨부로 만든다.
@@ -22,23 +23,20 @@ struct ImageAttachmentLoader {
 
     func attachment(from url: URL) async throws -> UNNotificationAttachment {
         let (downloadedURL, response) = try await session.download(from: url)
-        guard let status = (response as? HTTPURLResponse)?.statusCode, Status.success.contains(status) else {
+        guard PushImageAttachment.isSuccessful(response) else {
             throw LoadError.unexpectedResponse
         }
 
-        // 시스템은 확장자로 첨부 형식을 판단한다. 내려받은 임시 파일에는 확장자가 없으므로 붙여서 옮긴다.
-        let fileExtension = response.suggestedFilename.map { ($0 as NSString).pathExtension } ?? url.pathExtension
-        let fileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(fileExtension)
+        let fileURL = PushImageAttachment.fileURL(
+            for: response,
+            requestURL: url,
+            in: FileManager.default.temporaryDirectory,
+            name: UUID().uuidString
+        )
         try FileManager.default.moveItem(at: downloadedURL, to: fileURL)
 
         // 식별자를 비우면 시스템이 고유한 값을 만든다. 첨부 파일은 시스템이 자기 저장소로 옮긴다.
         return try UNNotificationAttachment(identifier: "", url: fileURL)
-    }
-
-    private enum Status {
-        static let success = 200 ..< 300
     }
 }
 
