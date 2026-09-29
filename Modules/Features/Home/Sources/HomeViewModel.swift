@@ -37,7 +37,8 @@ public final class HomeViewModel {
         do {
             state = try await .loaded(fetchItems.execute())
         } catch {
-            state = .failed(error)
+            // 화면을 벗어나 취소된 호출이면 다음 진입의 .task 가 다시 부르도록 되돌린다.
+            state = Task.isCancelled ? .idle : .failed(error)
         }
     }
 
