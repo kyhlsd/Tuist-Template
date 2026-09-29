@@ -43,15 +43,36 @@ struct PushImageAttachmentTests {
         #expect(fileURL.pathExtension == "jpg")
     }
 
-    /// 헤더가 없으면 `suggestedFilename` 이 응답 URL 의 마지막 경로라 요청 URL 까지 가지 않는다.
-    @Test("헤더가 없으면 응답 URL 에서 제안한 파일 이름의 확장자를 쓴다")
-    func fileURL_noHeader_usesSuggestedFilenameExtension() throws {
-        let url = try imageURL("cat.gif")
-        let response = try response(url: url)
+    @Test("Content-Disposition 파일 이름에 확장자가 없으면 요청 URL 확장자를 쓴다")
+    func fileURL_contentDispositionWithoutExtension_usesRequestURLExtension() throws {
+        let url = try imageURL("cat.png")
+        let response = try response(url: url, headers: ["Content-Disposition": "attachment; filename=\"dog\""])
 
         let fileURL = PushImageAttachment.fileURL(for: response, requestURL: url, in: directory, name: "id")
 
+        #expect(fileURL.pathExtension == "png")
+    }
+
+    /// 헤더가 없을 때 Foundation 이 합성하는 `suggestedFilename` 은 OS 버전마다 달라 쓰지 않는다.
+    /// 응답 URL 과 요청 URL 의 확장자를 다르게 둬 요청 URL 이 먼저인지 본다.
+    @Test("헤더가 없으면 응답 URL 보다 요청 URL 확장자를 먼저 쓴다")
+    func fileURL_noHeader_prefersRequestURLExtension() throws {
+        let requestURL = try imageURL("cat.gif")
+        let response = try response(url: imageURL("cat.png"))
+
+        let fileURL = PushImageAttachment.fileURL(for: response, requestURL: requestURL, in: directory, name: "id")
+
         #expect(fileURL.pathExtension == "gif")
+    }
+
+    @Test("요청 URL 에 확장자가 없으면 MIME 타입보다 응답 URL 확장자를 먼저 쓴다")
+    func fileURL_extensionlessRequestURL_usesResponseURLExtension() throws {
+        let requestURL = try imageURL("signed-abc")
+        let response = try response(url: imageURL("cat.png"), headers: ["Content-Type": "image/jpeg"])
+
+        let fileURL = PushImageAttachment.fileURL(for: response, requestURL: requestURL, in: directory, name: "id")
+
+        #expect(fileURL.pathExtension == "png")
     }
 
     @Test("결과는 directory/name.확장자 다")
@@ -88,7 +109,7 @@ struct PushImageAttachmentTests {
     }
 
     /// 확장자 있는 요청 URL 이 확장자 없는 URL(예: 서명 URL)로 리다이렉트되면 응답 URL 은 최종 URL 이다.
-    /// 제안 파일 이름은 "Unknown" 이라 확장자가 비고, 요청 URL 확장자가 MIME 타입보다 먼저 쓰인다.
+    /// iOS 27 은 이때 `suggestedFilename` 에 MIME 타입 확장자(jpeg)를 붙이지만, 헤더가 없으므로 쓰지 않는다.
     @Test("응답 URL 에 확장자가 없으면(리다이렉트) 요청 URL 확장자를 MIME 타입보다 먼저 쓴다")
     func fileURL_redirectedToExtensionlessURL_usesRequestURLExtension() throws {
         let requestURL = try imageURL("cat.png")
@@ -109,8 +130,7 @@ struct PushImageAttachmentTests {
         #expect(fileURL == directory.appendingPathComponent("id"))
     }
 
-    /// 헤더도 URL 확장자도 없으면 `suggestedFilename` 이 "Unknown" 이라 확장자가 비고, 이름만 남는다.
-    /// 시스템이 형식을 판단하지 못해 첨부가 실패하는 경우다.
+    /// 헤더도 URL 확장자도 없으면 확장자가 비고 이름만 남는다. 시스템이 형식을 판단하지 못해 첨부가 실패하는 경우다.
     @Test("헤더도 URL 확장자도 없으면 확장자 없이 이름만 남는다")
     func fileURL_noExtensionAnywhere_returnsNameWithoutExtension() throws {
         let url = try imageURL("cat")

@@ -69,7 +69,7 @@
 | 상태 코드 판정 | `static func isSuccessful(_ response: URLResponse) -> Bool`. `HTTPURLResponse`가 아니면 `false`다 | 지금 동작과 같다. 에러 타입(`LoadError`)은 익스텐션에 남겨 Push의 공개 표면을 작게 둔다 |
 | 파일 경로 | `static func fileURL(for response: URLResponse, requestURL: URL, in directory: URL, name: String) -> URL` | 디렉터리와 이름을 인자로 받아야 테스트가 `FileManager`·`UUID` 없이 결과를 비교할 수 있다. 익스텐션은 `temporaryDirectory`와 `UUID().uuidString`을 넘긴다 |
 | 동작 보존 | 확장자 규칙은 지금 식을 그대로 옮긴다 | 이번 작업은 테스트 공백을 메우는 것이다. 동작 변경은 범위 밖이다 |
-| 확장자 없는 응답(4단계) | 제안 파일 이름 → 요청 URL → MIME 타입 표 순서로 비어 있지 않은 첫 확장자를 쓴다. 표는 Push 안에 Foundation만으로 두고 `image/jpeg`·`image/png`·`image/gif`와 JPEG 비표준 별칭 `image/jpg`만 담는다(리뷰 R1-2). 셋 다 없으면 지금처럼 확장자 없이 둔다 | iOS는 헤더·URL 확장자가 없으면 `suggestedFilename`이 `Unknown`이라 확장자가 비고 첨부가 실패한다(1단계에서 관찰). UTType은 UniformTypeIdentifiers라 Push 원칙을 바꿔야 하고, 익스텐션에 두면 테스트할 수 없어 기각했다(사용자 결정). 표의 세 형식은 알림 첨부가 받는 이미지 형식이다 |
+| 확장자 없는 응답(4단계) | `Content-Disposition` 파일 이름 → 요청 URL → 응답 URL → MIME 타입 표 순서로 비어 있지 않은 첫 확장자를 쓴다. `suggestedFilename`은 `Content-Disposition` 헤더가 있을 때만 쓴다(CI 실패 후 수정: 헤더 없이 Foundation이 합성하는 값은 iOS 26에서 `Unknown`, iOS 27에서 MIME 확장자라 OS마다 결과가 달랐다. 사용자 결정). 표는 Push 안에 Foundation만으로 두고 `image/jpeg`·`image/png`·`image/gif`와 JPEG 비표준 별칭 `image/jpg`만 담는다(리뷰 R1-2). 셋 다 없으면 지금처럼 확장자 없이 둔다 | iOS는 헤더·URL 확장자가 없으면 `suggestedFilename`이 `Unknown`이라 확장자가 비고 첨부가 실패한다(1단계에서 관찰). UTType은 UniformTypeIdentifiers라 Push 원칙을 바꿔야 하고, 익스텐션에 두면 테스트할 수 없어 기각했다(사용자 결정). 표의 세 형식은 알림 첨부가 받는 이미지 형식이다 |
 | Persistence README | 주의 문단에 "앱이 첫 잠금 해제 전에 실행될 수 있는 경로를 추가하면, 읽기 실패를 `.signedOut`과 구분하도록 다시 검토한다"를 더한다 | 템플릿 사용자가 백그라운드 push나 BGTask를 추가할 때 이 한계가 실제로 생긴다. 지금은 생기지 않으므로 코드는 바꾸지 않는다 |
 
 ## 변경 계획
@@ -143,7 +143,9 @@
 | `isSuccessful_status404_returnsFalse` | 클라이언트 에러 |
 | `isSuccessful_nonHTTPResponse_returnsFalse` | `HTTPURLResponse`가 아닌 응답 |
 | `fileURL_contentDispositionFilename_usesItsExtension` | `suggestedFilename`이 헤더에서 온 경우. URL 확장자보다 우선한다 |
-| `fileURL_noHeader_usesSuggestedFilenameExtension` | 헤더 없이 응답 URL에서 제안한 파일 이름의 확장자를 쓰는 경우 |
+| `fileURL_contentDispositionWithoutExtension_usesRequestURLExtension` | 헤더 파일 이름에 확장자가 없으면 요청 URL로 |
+| `fileURL_noHeader_prefersRequestURLExtension` | 헤더 없으면 합성된 `suggestedFilename` 대신 요청 URL이 응답 URL보다 우선 |
+| `fileURL_extensionlessRequestURL_usesResponseURLExtension` | 요청 URL에 확장자가 없으면 응답 URL이 MIME보다 우선 |
 | `fileURL_placesNameInDirectory` | 결과가 `directory/name.확장자`인지 |
 | `fileURL_noExtensionAnywhere_…` | 헤더도 URL 확장자도 없을 때. 기대 결과는 구현 중 확인하고, 관찰한 동작을 고정한다 |
 
