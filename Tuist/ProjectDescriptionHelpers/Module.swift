@@ -234,8 +234,10 @@ extension Module {
     enum DependencyRole {
         /// 모듈 구현과 Interface. `*Testing` 에 의존할 수 없다.
         case implementation
-        /// 테스트, Testing, 데모 타깃. 허용된 모듈의 `*Testing` 에도 의존할 수 있다.
+        /// 테스트, 데모 타깃. 허용된 모듈의 `*Testing` 에도 의존할 수 있고, 자기 모듈의 `*Testing` 은 규칙 없이 쓸 수 있다.
         case support
+        /// 자기 모듈의 `*Testing` 타깃. 허용된 모듈의 `*Testing` 에 의존할 수 있지만 자기 자신에는 의존할 수 없다.
+        case testingSupport
     }
 
     /// `.project` 의존의 대상 이름을 등록부의 모듈로 되돌린다. 등록부 밖이면 `nil`.
@@ -288,24 +290,47 @@ extension Module {
                         + "테스트·데모 타깃의 의존성으로 옮기세요."
                 )
             }
+            // 자기 모듈의 *Testing 은 테스트·데모만 규칙 없이 쓸 수 있다.
+            // Core 는 `.testing(.domain)` 이 자기 자신(.domain → .domain)으로 풀려 mayDepend 에 걸리기 때문이다.
+            // *Testing 타깃이 자기 자신을 가리키면 Tuist 의 순환 오류 대신 여기서 이유를 알린다.
+            // 피처의 *Testing 은 Interface 로 풀리므로 모듈이 아니라 타깃 이름으로 비교한다.
+            if resolved.isTesting, target == "\(owner.name)Testing" {
+                switch role {
+                case .support:
+                    continue
+                case .testingSupport:
+                    fatalError("\(ErrorText.prefix)\(targetName) → \(target): *Testing 은 자기 자신에 의존할 수 없습니다.")
+                case .implementation:
+                    preconditionFailure(
+                        "\(ErrorText.prefix)\(targetName) → \(target): 구현 타깃의 *Testing 의존은 위에서 이미 막았다."
+                    )
+                }
+            }
             guard owner.mayDepend(on: resolved.module) else {
                 fatalError("\(ErrorText.prefix)\(targetName) → \(target) 의존은 허용되지 않습니다. \(ErrorText.ruleLocation)")
             }
         }
     }
 
-    /// 모듈 구현 타깃과 지원 타깃(테스트, Testing, 데모)을 함께 검사한다.
+    /// 모듈 구현 타깃과 지원 타깃(테스트·데모, Testing)을 함께 검사한다.
     static func validateModuleDependencies(
         of owner: Module,
         dependencies: [TargetDependency],
-        supportDependencies: [TargetDependency]
+        supportDependencies: [TargetDependency],
+        testingDependencies: [TargetDependency]
     ) {
         validateDependencies(of: owner, role: .implementation, targetName: owner.name, dependencies: dependencies)
         validateDependencies(
             of: owner,
             role: .support,
-            targetName: "\(owner.name)Tests/Testing/Demo",
+            targetName: "\(owner.name)Tests/Demo",
             dependencies: supportDependencies
+        )
+        validateDependencies(
+            of: owner,
+            role: .testingSupport,
+            targetName: "\(owner.name)Testing",
+            dependencies: testingDependencies
         )
     }
 
@@ -314,7 +339,8 @@ extension Module {
         name: String,
         interface interfaceDependencies: [TargetDependency],
         implementation dependencies: [TargetDependency],
-        support supportDependencies: [TargetDependency]
+        support supportDependencies: [TargetDependency],
+        testing testingDependencies: [TargetDependency]
     ) {
         let interface = Module.featureInterface(name)
         validateDependencies(
@@ -326,7 +352,8 @@ extension Module {
         validateModuleDependencies(
             of: .feature(name),
             dependencies: dependencies,
-            supportDependencies: supportDependencies
+            supportDependencies: supportDependencies,
+            testingDependencies: testingDependencies
         )
     }
 

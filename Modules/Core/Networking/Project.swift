@@ -25,6 +25,7 @@ let project = Project.core(
         .external(name: "HTTPTypes"),
         .module(.auth),
         .testing(.auth),
+        .testing(.networking), // 테스트가 자기 픽스처·대역을 쓴다
     ],
     hasTestingSupport: true
 )
