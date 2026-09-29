@@ -170,4 +170,8 @@ else
     echo "      예: (.core(\"$name\"), .domain),"
     echo "    규칙이 없으면 generate 가 문구 없이 멈춘다(App 은 규칙 없이 의존할 수 있다)."
 fi
+if "$testing"; then
+    echo "  - ${name}Testing 은 다른 모듈의 테스트·데모가 .testing(...) 으로 가져간다."
+    echo "    자기 테스트·데모가 쓰게 되면 그 매니페스트의 testDependencies/demoDependencies 에 직접 적는다(자동 연결 없음)."
+fi
 echo "  - mise exec -- tuist generate"

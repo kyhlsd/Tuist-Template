@@ -256,7 +256,7 @@ mise exec -- tuist generate
 | 옵션 | 만드는 것 | `Project.swift` |
 | --- | --- | --- |
 | `--demo` | `Demo/Sources/<Name>DemoApp.swift`, `Module.withDemoApp` 등록 | `hasDemoApp: true` |
-| `--testing` | `Testing/Sources/` 의 픽스처 | `hasTestingSupport: true` |
+| `--testing` | `Testing/Sources/` 의 픽스처(다른 모듈의 테스트·데모용) | `hasTestingSupport: true` |
 | `--resources` | `Resources/Localizable.xcstrings` | `hasResources: true` |
 
 직접 하는 일:
@@ -291,6 +291,9 @@ mise exec -- tuist generate
 
 만든 뒤 import 를 늘리면 `enforceExplicitDependencies` 때문에 그 모듈을 해당 타깃의
 `*Dependencies` 에 모두 적어야 한다. 빠지면 `tuist generate` 가 실패한다.
+반대로 import 하지 않는 모듈을 적으면 CI 의 `tuist inspect dependencies` 가 중복 의존으로 실패한다.
+자기 `<Name>Testing` 도 마찬가지다. 템플릿은 자동으로 연결하지 않으므로, 자기 테스트·데모가 그 픽스처를
+import 하게 되면 `testDependencies`/`demoDependencies` 에 `.testing(.core("Name"))`(피처는 `.testing(.feature("Name"))`)를 적는다.
 
 ## 새 앱으로 복제할 때 바꿀 곳
 

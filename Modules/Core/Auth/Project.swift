@@ -13,5 +13,8 @@ import ProjectDescriptionHelpers
 /// AuthTesting 에는 `InMemoryTokenStore`, `FailingTokenStore` 를 둔다. Networking 과 Data 테스트가 재사용한다.
 let project = Project.core(
     name: "Auth",
+    testDependencies: [
+        .testing(.auth), // 테스트가 자기 픽스처·대역을 쓴다
+    ],
     hasTestingSupport: true
 )

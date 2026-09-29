@@ -24,7 +24,10 @@ public extension Project {
     ///
     /// `*Dependencies` 는 enforceExplicitDependencies 때문에 각 타깃이 import 하는
     /// 모듈을 모두 적어야 한다. 템플릿이 자동으로 넣는 것은 같은 프로젝트 안의
-    /// 타깃뿐이다. (구현 → Interface, Tests·Demo → 구현·Interface·Testing)
+    /// 타깃뿐이다. (구현 → Interface, Tests·Demo → 구현·Interface)
+    /// 자기 {name}Testing 은 자동으로 연결하지 않는다. 테스트·데모가 import 할 때만
+    /// `testDependencies`/`demoDependencies` 에 `.testing(.feature(name))` 로 적는다.
+    /// import 하지 않는데 연결하면 `tuist inspect dependencies` 가 중복 의존으로 잡는다.
     static func feature(
         name: String,
         interfaceDependencies: [TargetDependency] = [],
@@ -39,11 +42,13 @@ public extension Project {
     ) -> Project {
         Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
         let interfaceName = "\(name)Interface"
-        let testingName = "\(name)Testing"
 
-        let supportDependencies = testDependencies + testingDependencies + demoDependencies
         Module.validateFeatureDependencies(
-            name: name, interface: interfaceDependencies, implementation: dependencies, support: supportDependencies
+            name: name,
+            interface: interfaceDependencies,
+            implementation: dependencies,
+            support: testDependencies + demoDependencies,
+            testing: testingDependencies
         )
 
         var targets: [Target] = [
@@ -71,7 +76,6 @@ public extension Project {
 
         // 테스트와 데모는 이 피처의 Route(Interface)를 다루므로 함께 연결한다.
         let localSupport: [TargetDependency] = [.target(name: interfaceName)]
-            + (hasTestingSupport ? [.target(name: testingName)] : [])
 
         targets.append(
             .testTarget(
@@ -110,6 +114,10 @@ public extension Project {
     ///
     /// hasSnapshotTests 는 `Tests/__Snapshots__/*.png` 를 테스트 번들 리소스로 넣는다.
     /// (`Target.testTarget` 참고)
+    ///
+    /// 자기 {name}Testing 은 테스트·데모에 자동으로 연결하지 않는다. import 할 때만
+    /// `testDependencies`/`demoDependencies` 에 `.testing(...)` 로 적는다(예: Domain 의 `.testing(.domain)`).
+    /// import 하지 않는데 연결하면 `tuist inspect dependencies` 가 중복 의존으로 잡는다.
     static func core(
         name: String,
         dependencies: [TargetDependency] = [],
@@ -123,7 +131,6 @@ public extension Project {
         hasSnapshotTests: Bool = false
     ) -> Project {
         Module.validateRegistration(name: name, hasDemoApp: hasDemoApp)
-        let testingName = "\(name)Testing"
 
         guard let module = Module.all.first(where: { $0.name == name }) else {
             preconditionFailure("validateRegistration 이 \(name) 의 등록을 보장한다.")
@@ -131,10 +138,9 @@ public extension Project {
         Module.validateModuleDependencies(
             of: module,
             dependencies: dependencies,
-            supportDependencies: testDependencies + testingDependencies + demoDependencies
+            supportDependencies: testDependencies + demoDependencies,
+            testingDependencies: testingDependencies
         )
-        let testingTarget: [TargetDependency] = hasTestingSupport ? [.target(name: testingName)] : []
-
         var targets: [Target] = [
             .module(
                 name: name,
@@ -144,7 +150,7 @@ public extension Project {
             ),
             .testTarget(
                 for: name,
-                dependencies: testDependencies + testingTarget,
+                dependencies: testDependencies,
                 hasSnapshotTests: hasSnapshotTests
             ),
         ]
@@ -159,7 +165,7 @@ public extension Project {
         }
 
         if hasDemoApp {
-            targets.append(.demoApp(for: name, dependencies: demoDependencies + testingTarget))
+            targets.append(.demoApp(for: name, dependencies: demoDependencies))
         }
 
         return Project(

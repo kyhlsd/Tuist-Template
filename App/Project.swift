@@ -34,6 +34,17 @@ let project = Project.app(
         .external(name: "FirebaseRemoteConfig"),
     ],
     testDependencies: [
+        // 테스트가 직접 import 하는 모듈. 앱을 거쳐 링크돼도 명시해야 `tuist inspect dependencies` 가 통과한다.
+        .module(.data), // CachedItemRepository(캐시 비우기 연결 테스트)
+        .module(.diagnostics), // 진단 싱크·브레드크럼 테스트
+        .module(.domain), // 캐시 비우기 연결 테스트의 SessionStatus
+        .module(.featureFlags), // 플래그 제공자 선택 테스트
+        .module(.featureInterface("Home")), // Route·라우터 테스트의 HomeRoute
+        .module(.navigation), // AppRoute 테스트
+        .module(.networking), // NetworkBreadcrumbAdapter 테스트
+        .module(.core("Persistence")), // 로컬 DB·캐시 비우기 연결 테스트
+        .module(.tracking), // 이벤트 기록기 테스트
+        .external(name: "FirebaseRemoteConfig"), // RemoteConfigFeatureFlagProvider 테스트
         .testing(.diagnostics), // 보고를 기록하는 SpyDiagnosticReporter
         .testing(.domain), // 캐시 비우기 연결 테스트의 StubAuthRepository, StubItemRepository
         .testing(.core("Persistence")), // 캐시 비우기 연결 테스트의 InMemoryItemCache

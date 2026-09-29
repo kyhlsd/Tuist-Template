@@ -17,5 +17,8 @@ import ProjectDescriptionHelpers
 /// `.testing(.featureFlags)` 로 가져다 쓴다.
 let project = Project.core(
     name: "FeatureFlags",
+    testDependencies: [
+        .testing(.featureFlags), // 테스트가 자기 픽스처·대역을 쓴다
+    ],
     hasTestingSupport: true
 )

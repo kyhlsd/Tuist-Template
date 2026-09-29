@@ -15,5 +15,8 @@ import ProjectDescriptionHelpers
 /// Data 테스트가 재사용한다. `InMemoryKeyValueStore` 의 락 때문에 Testing 타깃은 `os` 도 import 한다.
 let project = Project.core(
     name: "Persistence",
+    testDependencies: [
+        .testing(.core("Persistence")), // 테스트가 자기 픽스처·대역을 쓴다
+    ],
     hasTestingSupport: true
 )
