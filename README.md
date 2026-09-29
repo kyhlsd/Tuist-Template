@@ -192,7 +192,7 @@ Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
 | --- | --- |
 | `lint` | swiftformat 포맷, SwiftLint(error 만 실패), OpenAPI 생성물이 명세와 일치하는지 |
 | `build-test` | 셋업 → 모든 모듈 테스트(Debug, 커버리지 수집) → 잡 요약에 커버리지 표 |
-| `release-build` | 셋업 → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다. Staging 은 컴파일 조건이 같아 따로 빌드하지 않는다 |
+| `release-build` | 셋업 → 의존성 검사(`tuist inspect dependencies`: 암묵적·중복 의존) → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다. Staging 은 컴파일 조건이 같아 따로 빌드하지 않는다 |
 
 로컬에서 같은 검사를 재현하려면 저장소 루트에서 다음을 돌린다.
 
@@ -201,8 +201,13 @@ mise exec -- swiftformat --lint .
 mise exec -- swiftlint lint --quiet
 Scripts/openapi-generate.sh --check
 ./.claude/scripts/xcbuild.sh test
+tuist inspect dependencies
 ./.claude/scripts/xcbuild.sh build -configuration Release
 ```
+
+- **의존성 검사**는 두 겹이다. `Tuist.swift` 의 `enforceExplicitDependencies` 는 `tuist generate` 시점에 빠진 의존을 막고,
+  `tuist inspect dependencies` 는 CI 에서 import 하지만 명시하지 않은 의존(implicit)과 명시했지만 import 하지 않는
+  의존(redundant)을 함께 잡는다. 계정이 필요 없다. 실패하면 출력에 나온 타깃의 `dependencies`/`testDependencies` 를 고친다.
 
 - **테스트가 실패하면** 실행 요약 페이지의 Artifacts 에 `TestResults.xcresult` 가 올라간다(7일 보관).
   내려받아 Xcode 로 열면 실패 원인과 첨부를 볼 수 있다. 실패 시 상세 진단(sysdiagnose 비슷한 것)은 모으지 않는다.

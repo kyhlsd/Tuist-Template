@@ -104,7 +104,7 @@ jobs:
           retention-days: 7
           overwrite: true
 
-  # Release 에서만 나는 컴파일 에러(#if DEBUG 분기 등)를 PR 에서 잡는다.
+  # Release 에서만 나는 컴파일 에러(#if DEBUG 분기 등)와 모듈 의존 그래프의 어긋남을 PR 에서 잡는다.
   # build-test 와 병렬로 돌려 PR 의 크리티컬 패스에서 뺀다.
   release-build:
     runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
@@ -115,6 +115,12 @@ jobs:
 
       - name: 셋업
         uses: ./.github/actions/setup
+
+      # 테스트가 import 하는데 명시하지 않은 의존(implicit)과, 명시했지만 쓰지 않는 의존(redundant)을 잡는다.
+      # lint 잡이 아니라 여기 두는 이유: 외부 의존(Firebase)까지 그래프를 읽으려면 셋업의 tuist install 이 필요하다.
+      # build-test 에 두지 않는 이유: 여기서 실패해도 테스트 결과는 그대로 남기려고.
+      - name: 의존성 검사 (tuist inspect)
+        run: tuist inspect dependencies
 
       - name: Release 빌드
         run: ./.claude/scripts/xcbuild.sh build -configuration Release
