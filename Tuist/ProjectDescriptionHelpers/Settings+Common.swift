@@ -83,10 +83,11 @@ public extension InfoPlist {
             "CFBundleVersion": "$(CURRENT_PROJECT_VERSION)",
             "API_BASE_URL": "$(API_BASE_URL)",
             "LOG_LEVEL": "$(LOG_LEVEL)",
-            "ANALYTICS_APP_KEY": "$(ANALYTICS_APP_KEY)",
-            "MAP_SDK_KEY": "$(MAP_SDK_KEY)",
             "UILaunchScreen": [:],
         ]
+        for key in AppConstants.clientKeys {
+            plist[key] = .string("$(\(key))")
+        }
         if !urlSchemes.isEmpty {
             plist["CFBundleURLTypes"] = [
                 [

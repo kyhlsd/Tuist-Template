@@ -28,6 +28,16 @@ public enum AppConstants {
     /// 앱 코드는 스킴을 비교하지 않는다. 테스트·문서의 URL 리터럴은 일관성을 위해 스크립트가 함께 바꾼다.
     public static let urlScheme = "tuistapp"
 
+    /// 앱과 데모 앱 Info.plist 에 `$(KEY)` 로 넣는 클라이언트 키 이름(`InfoPlist.runnable`).
+    ///
+    /// 값은 `Configurations/ClientKeys.xcconfig` 에서 온다. 키를 더하거나 뺄 때는
+    /// `Configurations/ClientKeys.xcconfig.example` 과 함께 바꾼다. 쓰지 않는 샘플 키는 두 곳에서 지우면 된다.
+    /// 환경 설정(`API_BASE_URL`, `LOG_LEVEL`)은 클라이언트 키가 아니므로 여기 두지 않는다.
+    public static let clientKeys = [
+        "ANALYTICS_APP_KEY",
+        "MAP_SDK_KEY",
+    ]
+
     /// 모듈 이름으로 번들 ID 를 만든다.
     public static func bundleID(for name: String) -> String {
         "\(bundleIDPrefix).\(name.lowercased())"
