@@ -1,0 +1,26 @@
+//
+//  {{ name }}ViewModel.swift
+//  {{ name }}
+//
+
+import {{ name }}Interface
+import Navigation
+import Observation
+
+/// {{ name }} 첫 화면의 상태와 동작. 스캐폴드가 만든 자리표시 뷰모델이다.
+///
+/// Router 는 프로토콜(`Routing`)로 주입받는다. 실제 구현은 App 이, 스파이는 테스트가(`SpyRouter`) 넣는다.
+@MainActor
+@Observable
+public final class {{ name }}ViewModel {
+    @ObservationIgnored private let router: any Routing
+
+    public init(router: any Routing) {
+        self.router = router
+    }
+
+    /// 다음 화면으로 간다. 값을 실제 화면으로 바꾸는 것은 App(데모에서는 데모 앱)이다.
+    public func showDetail() {
+        router.push({{ name }}Route.detail)
+    }
+}
