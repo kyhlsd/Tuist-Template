@@ -173,6 +173,7 @@ public extension Module {
     static let withDemoApp: [Module] = [
         .designSystem,
         .feature("Home"),
+        .navigation,
         // new-module.sh 가 이 줄 위에 추가한다(데모 앱). 지우거나 옮기지 않는다.
     ]
 
