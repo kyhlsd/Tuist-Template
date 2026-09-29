@@ -5,6 +5,9 @@
 //
 //   cp Configurations/ClientKeys.xcconfig.example Configurations/ClientKeys.xcconfig
 //
+// 키를 더하거나 빼면 Tuist/ProjectDescriptionHelpers/AppConstants.swift 의 clientKeys 도 함께 바꾼다.
+// 그 목록에 있는 키만 Info.plist 에 들어가 코드에서 읽을 수 있다.
+//
 //
 // ─────────────────────────────────────────────────────────────
 // 여기에 넣어도 되는 것 / 넣으면 안 되는 것
