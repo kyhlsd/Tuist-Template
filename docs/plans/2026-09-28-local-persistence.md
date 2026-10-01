@@ -109,7 +109,7 @@
 | UserDefaults 키 | 모든 키 앞에 접두사 상수(예: `"persistence."`)를 붙이고, 접두사는 `private enum` 에 둔다 | Firebase 같은 SDK 가 쓰는 키와 섞이지 않게 한다. 리터럴을 흩어 두지 않는다 |
 | `UserDefaults` 보관 | `UserDefaults` 가 SDK 에서 `Sendable` 이면 인스턴스를 보관한다. 아니면 `suiteName: String?` 만 보관하고 호출할 때마다 `UserDefaults(suiteName:)` 로 얻는다. 구현 중 확인 | `@unchecked Sendable` 금지 규약을 지킨다 |
 | 설정 예시 | Domain `protocol SettingsRepository: Sendable { hasCompletedOnboarding() -> Bool; setHasCompletedOnboarding(_:) }`. 저장된 값을 해석하지 못하면 Data 가 보고하고 기본값 `false` 를 돌려준다 | 템플릿에서 흔히 필요한 예시다. 화면이 설정 에러를 구분할 이유가 없으므로 Domain 에 에러 타입을 늘리지 않는다 |
-| 보고 형식 | `DiagnosticFailure(operationID: nil, errorType: "PersistenceError", errorCode: nil, summary: <case 이름>, requestID: nil)`. 문자열은 Data 의 `private enum` 상수로 둔다. `reportPersistenceFailure(_:)` 는 `public` 이라 App 의 저장소 폴백도 같은 형식으로 보고한다 | 기존 Diagnostics 경로를 재사용한다. 새 보고 API 를 만들지 않는다 |
+| 보고 형식 | `DiagnosticFailure(operationID: nil, errorType: "PersistenceError.<case 이름>", errorCode: nil, summary: <case 이름>, requestID: nil)`. 문자열은 Data 의 `private enum` 상수로 둔다. `reportPersistenceFailure(_:)` 는 `public` 이라 App 의 저장소 폴백도 같은 형식으로 보고한다 | 기존 Diagnostics 경로를 재사용한다. 새 보고 API 를 만들지 않는다 |
 
 ## 변경 계획
 

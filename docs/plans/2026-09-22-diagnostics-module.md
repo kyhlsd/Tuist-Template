@@ -95,7 +95,7 @@
     - 특징: 서버가 볼 수 없는 에러만 보고, request ID로 서버 로그와 연결, fingerprint(operation × 타입(case) × 코드)별 5분 억제, breadcrumb이 비치명 에러와 크래시 리포트에 붙음, 전송 수단은 싱크로 교체, Debug와 plist가 없을 때는 로그로만 남김, 취소는 info
     - 구성: 이 모듈의 타입, Networking(`NetworkFailure`, `RequestIDMiddleware`, `NetworkActivityObserving`), App(`FirebaseBootstrap`, `CrashlyticsDiagnosticSink`, `NetworkBreadcrumbAdapter`, `AppContainer` 조립)의 위치와 의존 방향
     - 사용법: 새 Repository에서 보고하기(`catch`에서 `NetworkFailure.describe` → `isReportable`이면 `reporter.report`), 테스트에서 `SpyDiagnosticReporter` 쓰기, 새 싱크 만들기(`DiagnosticEventSink & BreadcrumbRecording`), Console에서 보기(subsystem = 번들 ID, category `Networking`/`Diagnostics`)
-    - Crashlytics 켜기: `GoogleService-Info.plist`를 `App/Resources/`에 넣는 체크리스트(이전 계획의 "plist를 넣을 때"). 대시보드에서 읽는 법(domain `network.<operation>.<errorType>`, code, userInfo `summary`/`requestID`, 로그 탭)
+    - Crashlytics 켜기: `GoogleService-Info.plist`를 `App/Resources/`에 넣는 체크리스트(이전 계획의 "plist를 넣을 때"). 대시보드에서 읽는 법(domain `diagnostic.<operation>.<errorType>`, code, userInfo `summary`/`requestID`, 로그 탭)
     - 한도와 주의: 비치명 에러는 세션당 8개이고 다음 실행 때 전송, 로그는 64KB, 연관값이 없는 case는 타입 이름만, refresh 실패는 `refreshToken`으로 보고됨
   - 루트 README "구조"에 `Diagnostics/` 줄을 추가하고, 이미 틀린 `Networking/ HTTPClient`를 "OpenAPI 생성 클라이언트, 미들웨어, 토큰 저장소"로 고친다.
   - Networking README의 `Sources/Diagnostics/` 줄 뒤에 "진단 전체 구조는 `Modules/Core/Diagnostics/README.md`" 링크를 단다.

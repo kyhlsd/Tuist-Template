@@ -24,6 +24,8 @@ struct CrashlyticsDiagnosticSink: DiagnosticEventSink, BreadcrumbRecording {
 
     /// Crashlytics 가 domain 과 code 로 이슈를 묶으므로 operation 과 에러 타입을 domain 에 담는다.
     ///
+    /// 접두사는 출처와 상관없이 같다. 네트워크 외의 실패(저장소 등)도 보고하므로, 출처는 에러 타입이 드러낸다.
+    ///
     /// 실행마다 바뀌는 값(Swift `hashValue` 등)은 쓰지 않는다. 같은 에러가 다른 이슈로 갈라진다.
     static func nsError(for failure: DiagnosticFailure) -> NSError {
         let operationID = failure.operationID ?? ErrorFormat.unknownOperation
@@ -40,7 +42,7 @@ struct CrashlyticsDiagnosticSink: DiagnosticEventSink, BreadcrumbRecording {
 }
 
 private enum ErrorFormat {
-    static let domainPrefix = "network"
+    static let domainPrefix = "diagnostic"
     static let unknownOperation = "unknown"
     static let missingCode = 0
     static let summaryKey = "summary"

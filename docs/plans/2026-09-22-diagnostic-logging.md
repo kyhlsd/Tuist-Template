@@ -101,7 +101,7 @@
 | 초기화 조건 | `!DEBUG && plist가 번들에 있음`일 때만 초기화한다. 판정은 `static func decision(isDebug:hasConfigFile:) -> Decision`으로 분리한다 | plist가 없으면 `configure()`가 크래시한다. 파일을 넣기 전에도 Release가 돌아야 한다 |
 | 싱크 선택 | 초기화되면 `CrashlyticsDiagnosticSink`, 아니면 `LoggerDiagnosticSink`(`os.Logger`, category `Diagnostics`) | Debug에서도 무엇이 보고될지 Console에서 볼 수 있다. plist가 없을 때 확인하는 수단이기도 하다 |
 | Firebase 위치 | App 타깃만 의존한다. 어댑터는 `App/Sources/Diagnostics/`에 둔다 | 조립 지점만 구현을 안다는 기존 원칙을 따른다. 모듈 빌드에 Firebase가 끼지 않는다 |
-| NSError 매핑 | domain `"network.<operationID>.<errorType>"`, code는 `URLError` 코드(없으면 0). userInfo에는 `summary`, `requestID`(있을 때)를 넣는다. 매핑은 `static func nsError(for:)`로 분리해 테스트한다 | Crashlytics가 domain+code로 묶는다. operation과 에러 종류별로 이슈가 나뉘게 한다. Swift `hashValue`처럼 실행마다 바뀌는 값은 쓰지 않는다 |
+| NSError 매핑 | domain `"diagnostic.<operationID>.<errorType>"`, code는 `URLError` 코드(없으면 0). userInfo에는 `summary`, `requestID`(있을 때)를 넣는다. 매핑은 `static func nsError(for:)`로 분리해 테스트한다 | Crashlytics가 domain+code로 묶는다. operation과 에러 종류별로 이슈가 나뉘게 한다. Swift `hashValue`처럼 실행마다 바뀌는 값은 쓰지 않는다 |
 | 보고 지점 | Data(`RemoteItemRepository`의 `catch`) 하나 | 디코딩 실패는 미들웨어에 보이지 않는다(전제 참고) |
 | 보고 대상 판정 | Networking의 공개 함수 `NetworkFailure.describe(_:)`. 제외 대상은 `CancellationError`, `URLError`의 `.cancelled`/`.notConnectedToInternet`/`.networkConnectionLost`/`.dataNotAllowed`/`.internationalRoamingOff`, `AuthenticationError` | 에러 타입을 아는 곳은 Networking이다. `LoggingMiddleware.summary`도 이 함수로 옮겨서 판정과 요약을 한 곳에 둔다 |
 | request ID | `RequestIDMiddleware`를 가장 바깥에 둔다. 요청 헤더가 없을 때 UUID를 넣고, 응답 헤더가 없을 때 같은 값을 넣는다 | Logging이 ID를 보고, 재시도는 같은 ID를 공유한다. 응답에 넣는 건 `ClientError.response`에서 Data가 ID를 읽기 위해서다 |

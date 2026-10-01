@@ -40,7 +40,7 @@ struct LocalSettingsRepositoryTests {
         #expect(completed == false)
         #expect(reporter.reported == [DiagnosticFailure(
             operationID: nil,
-            errorType: "PersistenceError",
+            errorType: "PersistenceError.decodingFailed",
             errorCode: nil,
             summary: "decodingFailed",
             requestID: nil

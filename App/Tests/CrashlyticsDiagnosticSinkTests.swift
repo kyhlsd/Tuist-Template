@@ -15,7 +15,20 @@ struct CrashlyticsDiagnosticSinkTests {
     func nsError_domain_includesOperationAndType() {
         let error = CrashlyticsDiagnosticSink.nsError(for: failure(errorCode: -1001))
 
-        #expect(error.domain == "network.listItems.URLError")
+        #expect(error.domain == "diagnostic.listItems.URLError")
+    }
+
+    @Test("출처와 상관없이 같은 접두사를 쓴다. 출처는 에러 타입이 드러낸다")
+    func nsError_persistenceFailure_usesSamePrefixAsNetwork() {
+        let error = CrashlyticsDiagnosticSink.nsError(for: DiagnosticFailure(
+            operationID: nil,
+            errorType: "PersistenceError.decodingFailed",
+            errorCode: nil,
+            summary: "decodingFailed",
+            requestID: nil
+        ))
+
+        #expect(error.domain == "diagnostic.unknown.PersistenceError.decodingFailed")
     }
 
     @Test("code 는 에러 코드다")
