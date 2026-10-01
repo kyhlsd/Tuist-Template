@@ -32,7 +32,7 @@ struct AuthMiddleware: ClientMiddleware {
         }
 
         let token = try await tokenProvider.currentAccessToken()
-        let (response, responseBody) = try await next(Self.authorized(request, token: token), body, baseURL)
+        let (response, responseBody) = try await next(Self.authorized(request, token: token.value), body, baseURL)
 
         // 한 번만 읽을 수 있는 body 는 다시 보낼 수 없으므로 원래 응답을 돌려준다.
         let isReplayable = body.map { $0.iterationBehavior == .multiple } ?? true
@@ -40,6 +40,7 @@ struct AuthMiddleware: ClientMiddleware {
             return (response, responseBody)
         }
 
+        // 읽은 값을 그대로 넘긴다. 그사이 세션이 바뀌었으면 갱신하지 않고 `sessionExpired` 로 끝난다.
         let refreshedToken = try await tokenProvider.refreshedAccessToken(rejected: token)
         return try await next(Self.authorized(request, token: refreshedToken), body, baseURL)
     }

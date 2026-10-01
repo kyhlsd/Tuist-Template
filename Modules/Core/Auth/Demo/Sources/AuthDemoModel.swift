@@ -96,7 +96,7 @@ final class AuthDemoModel {
         }
         do {
             try await operation(session)
-            let token = try await session.currentAccessToken()
+            let token = try await session.currentAccessToken().value
             guard session === self.session else { return }
             accessToken = token
         } catch {
