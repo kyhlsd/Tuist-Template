@@ -13,20 +13,22 @@ API 명세·생성 클라이언트와 엮인 코드(인증 미들웨어, 공개 
 | `Sources/AuthSession.swift` | 토큰 읽기, 401 갱신 단일화, 로그인·로그아웃, 상태 스트림 (`actor`) |
 | `Sources/AuthSessionState.swift` | `AuthSessionState { signedIn, signedOut, expired }` (`AuthSession.State` 로도 부른다) |
 | `Sources/AccessTokenProviding.swift` | 미들웨어가 의존하는 프로토콜(토큰 읽기·401 갱신) |
+| `Sources/SessionToken.swift` | 요청에 붙인 access token 과 그 토큰을 읽은 세션의 세대. 401 갱신 때 그대로 돌려준다 |
 | `Sources/SessionManaging.swift` | Repository 가 의존하는 프로토콜(로그인·로그아웃·상태) |
 | `Sources/AuthTokens.swift` | access·refresh token 한 쌍. 생성 타입 `TokenPair` 와 분리한 저장 모델 |
 | `Sources/AuthenticationError.swift` | 갱신 실패. `sessionExpired`(토큰 삭제됨), `refreshFailed`(토큰 유지) |
 | `Sources/TokenStore.swift` | 저장소 프로토콜 |
 | `Sources/KeychainTokenStore.swift`, `KeychainError.swift` | Keychain generic password 1개에 JSON 으로 저장(`AfterFirstUnlockThisDeviceOnly`) |
 | `Testing/Sources/` | `InMemoryTokenStore` (`saveCount`, `clearCount` 기록), `FailingTokenStore` (저장·삭제 실패) |
+| `Demo/Sources/` | AuthDemo. 실제 Keychain 저장과 로그인·로그아웃·만료 상태 전이를 화면으로 확인한다(`Auth` 스킴으로 실행) |
 
 ## 공개 API (`AuthSession`)
 
 | 메서드 | 쓰는 곳 | 동작 |
 |---|---|---|
 | `init(store:refresh:logger:)` | App | `refresh` 는 Networking 의 `APIClientFactory.makeTokenRefresh(...)` 로 만든다 |
-| `currentAccessToken()` | Networking 미들웨어 | 요청에 붙일 토큰 |
-| `refreshedAccessToken(rejected:)` | Networking 미들웨어 | 401 뒤 새 토큰. 동시 호출은 갱신 한 번으로 모은다 |
+| `currentAccessToken()` | Networking 미들웨어 | 요청에 붙일 토큰(`SessionToken.value`, 로그인 전이면 `nil`)과 읽은 시점의 세대 |
+| `refreshedAccessToken(rejected:)` | Networking 미들웨어 | 401 뒤 새 토큰. `rejected` 에는 `currentAccessToken()` 이 준 값을 그대로 넘긴다. 동시 호출은 갱신 한 번으로 모은다 |
 | `signIn(with:)` | Data `RemoteAuthRepository` | 저장 성공 시 `.signedIn`. 저장 실패는 로그를 남기고 던지며 상태를 바꾸지 않는다. 저장 중 로그아웃이 먼저 끝나면 `CancellationError` |
 | `signOut()` | Data `RemoteAuthRepository` | 메모리·저장소를 비우고 `.signedOut`. 삭제 실패는 알리고 로그를 남긴 뒤 던진다 |
 | `states()` | Data `RemoteAuthRepository` | 구독마다 따로 만드는 상태 스트림. 첫 값은 현재 상태 |
@@ -50,6 +52,8 @@ Networking 은 `AccessTokenProviding`, Data 는 `SessionManaging` 프로토콜�
 - 로그아웃 뒤에 끝난 이전 세션의 갱신이 토큰을 되살리지 않는다.
 - 로그인 뒤에 끝난 이전 세션의 갱신이 새 토큰을 덮어쓰지 않는다.
 - 이전 세션의 갱신이 거절돼도 새 세션을 만료시키지 않는다.
+- 요청이 토큰을 읽은 뒤 세션이 바뀌었으면(`SessionToken` 의 세대가 다르면) 그 요청의 401 로는 갱신하지 않고 `sessionExpired` 를 던진다.
+  이전 세션의 요청이 새 세션 토큰으로 다시 나가지 않는다.
 
 그 결과 로그아웃·재로그인 직후 진행 중이던 요청은 새 토큰으로 다시 보내지 않고 실패한다.
 화면은 이 에러가 아니라 `SessionStatus` 로 로그인 여부를 판단한다.
@@ -78,7 +82,7 @@ Networking 은 `AccessTokenProviding`, Data 는 `SessionManaging` 프로토콜�
 
 ### 테스트 동기화 지점
 
-`isRefreshInFlight`, `waitUntilGeneration(atLeast:)`, `waitUntilNoSubscribers()` 는 internal 이며 `@testable import` 하는 테스트만 쓴다.
+`rejecting(_:)`(지금 세대의 `SessionToken` 만들기), `isRefreshInFlight`, `waitUntilGeneration(atLeast:)`, `waitUntilNoSubscribers()` 는 internal 이며 `@testable import` 하는 테스트만 쓴다.
 sleep 없이 전환 시점을 맞추기 위한 것이다. 앱 코드에서 쓰지 않는다.
 
 ## 로그인 화면을 붙일 때

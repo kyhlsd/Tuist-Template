@@ -5,8 +5,8 @@
 
 | | |
 | --- | --- |
-| **5단계 흐름** | 조사 두 갈래 → 계획 문서 → 구현 → 검토. 각 단계가 슬래시 명령 하나 |
-| **격리된 조사** | 조사·검토는 포크에서 돌고 요약만 돌아옵니다. 읽은 파일이 본 대화에 쌓이지 않습니다 |
+| **4단계 흐름** | 조사(플랫폼·저장소 두 갈래를 동시에) → 계획 문서 → 구현 → 검토. 각 단계가 슬래시 명령 하나 |
+| **격리된 조사** | 조사는 서브에이전트, 검토는 포크에서 돌고 요약만 돌아옵니다. 읽은 파일이 본 대화에 쌓이지 않습니다 |
 | **결정론적 가드레일** | 포맷·린트 위반과 기본 브랜치 커밋은 훅이 막습니다. 모델의 판단에 맡기지 않습니다 |
 | **고정된 빌드 진입점** | 시뮬레이터를 한 번 골라 캐시합니다. 로그는 한 줄로 줄입니다 |
 | **LSP 내장** | SourceKit-LSP 플러그인이 동봉돼 있어 클론만 하면 심볼 조회가 됩니다 |
@@ -32,7 +32,7 @@
 | 1 | `/ios-research <기능>` | Apple API 조사 + 저장소 구조 조사를 동시에 | 인라인 → 에이전트 2개 | A |
 | 2 | `/ios-plan <작업>` | 두 조사 대조 → 계획 문서 생성 | 인라인 | A |
 | 3 | `/ios-implement <계획 파일>` | 단계별 구현 | 인라인 | B |
-| 4 | `/ios-review [base-ref]` | 변경분 검토 | 포크·포그라운드 | B |
+| 4 | `/ios-review [base-ref]` | 변경분 검토. 기준 기본값 `origin/develop`(hotfix 는 `origin/main` 을 넘긴다) | 포크·포그라운드 | B |
 
 4를 여러 번 돌릴 때는 `docs/reviews/<브랜치>.md` 결정 기록이 라운드 사이의 기준이 됩니다.
 `/ios-implement`가 리뷰를 반영하면서 기록을 갱신하고, 리뷰어는 그 기록의 확정 결정과 반대되는
@@ -78,8 +78,10 @@ CLAUDE.md                              매 요청 로드. 프로젝트 개요와
 .claude/
 ├── README.md                          이 문서
 ├── gitignore.example                  .gitignore에 추가할 항목
-├── settings.json                      훅 등록, 권한 deny
-├── scripts/xcbuild.sh                 빌드·테스트 진입점. 시뮬레이터 고정
+├── settings.json                      훅 등록, 권한 deny(git push 등), allow(review-snapshot.sh)
+├── scripts/
+│   ├── xcbuild.sh                     빌드·테스트 진입점. 시뮬레이터 고정
+│   └── review-snapshot.sh             /ios-review 의 라운드별 기준 트리 해시
 ├── rules/
 │   ├── swift.md                       paths: **/*.swift
 │   └── tests.md                       paths: **/*Tests.swift, Testing/Sources 등
@@ -128,7 +130,7 @@ CLAUDE.md                              매 요청 로드. 프로젝트 개요와
 | 강제 언래핑, `as!`, `try!`, IUO | SwiftLint `error` | 〃 |
 | 하드코딩된 URL·시크릿, `print` | 커스텀 규칙 `error` | 〃 |
 | `@unchecked Sendable` | 커스텀 규칙 `error` | 〃 |
-| 파일 단위 `swiftlint:disable` | 커스텀 규칙 `error` (`:next`만 허용) | 〃 |
+| 파일·블록 단위 `swiftlint:disable` | 커스텀 규칙 `error` (한 줄 단위 `:next`·`:this`·`:previous`만 통과. 규약은 `:next`) | 〃 |
 | 기본 브랜치 직접 커밋 | `guard-git.sh` | `git commit` 실행 직전 |
 | 도구·설정 누락 | `check-tools.sh` | 세션 시작 |
 
@@ -202,7 +204,7 @@ destination이 고정되면 DerivedData 캐시도 재사용되어 빌드가 빨�
 | 시뮬레이터 선택 | 빌드할 때마다 | `sim.local`에 UDID 고정 |
 | 린트 규약 재확인 | 검토 단계 | `/ios-review`가 `swiftlint`를 직접 실행 |
 
-`.claude/README.md`와 `.swiftlint.yml`은 합쳐 33KB지만 **컨텍스트에 들어가지 않습니다.**
+`.claude/README.md`와 `.swiftlint.yml`은 합쳐 약 37KB지만 **컨텍스트에 들어가지 않습니다.**
 길게 써도 비용이 없는 자리이므로, 설명은 여기에 두고 CLAUDE.md는 짧게 유지합니다.
 
 보고서 분량을 "500단어 이내" 같은 산문 제한으로 걸면 표가 상한을 뚫습니다
@@ -414,7 +416,7 @@ claude plugin validate .claude/skills/lsp-swift
 
 | 명령 | 확인하는 것 |
 | --- | --- |
-| `/skills` | 다섯 개 스킬이 보이는지 |
+| `/skills` | 네 개 스킬(`ios-research`, `ios-plan`, `ios-implement`, `ios-review`)이 보이는지 |
 | `/context` | 무엇이 컨텍스트를 얼마나 차지하는지. 커스텀 에이전트도 여기 뜹니다 |
 | `/plugin` | Errors 탭이 비어 있는지 = LSP 서버가 기동했는지 |
 | `/tasks` | 서브에이전트의 모델·effort, 포그라운드 여부 |
