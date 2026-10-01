@@ -16,10 +16,9 @@ public struct HomeView: View {
     public var body: some View {
         content
             .navigationTitle(String(localized: "홈", bundle: .module))
-            // 상세에서 돌아올 때마다 다시 불러오지 않도록 처음 한 번만 부른다.
-            .task {
-                guard viewModel.state == .idle else { return }
-                await viewModel.load()
+            // 진입과 재시도 모두 화면 수명에 묶인 이 `.task` 로 부른다. 부를지는 뷰모델이 정한다.
+            .task(id: viewModel.retryRequest) {
+                await viewModel.loadOnAppear()
             }
     }
 
@@ -40,7 +39,7 @@ public struct HomeView: View {
                 .buttonStyle(.plain)
             }
         case .failed:
-            AppStatusView.error(retry: { Task { await viewModel.load() } })
+            AppStatusView.error(retry: { viewModel.retry() })
         }
     }
 }
