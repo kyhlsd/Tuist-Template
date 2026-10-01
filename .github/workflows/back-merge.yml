@@ -1,0 +1,61 @@
+# main 푸시 후 main 이 develop 에 들어가 있지 않으면 main → develop 역머지 PR 을 연다.
+# hotfix 나 출시 PR 의 merge commit 이 develop 에 빠지는 것을 사람이 잊지 않게 하기 위해서다.
+#
+# develop 이 없으면(템플릿 직후) notice 만 남기고 끝난다. 이미 열린 역머지 PR 이 있으면 새로 열지 않는다.
+# GITHUB_TOKEN 으로 PR 을 만들려면 저장소 Settings > Actions > General 의
+#   "Allow GitHub Actions to create and approve pull requests" 가 켜져 있어야 한다(README '배포를 켜기 전').
+# GITHUB_TOKEN 으로 만든 PR 은 CI 를 새로 트리거하지 않는다. 대신 PR head 가 main 의 SHA 라
+#   main 푸시 때 돈 CI 결과가 그 SHA 에 붙어 있다.
+# 러너·액션 고정 방식은 ci.yml 과 같다.
+name: Back-merge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  back-merge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: 역머지 PR 열기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! git rev-parse --verify --quiet origin/develop >/dev/null; then
+            echo "::notice::develop 브랜치가 없어 역머지를 건너뜁니다."
+            exit 0
+          fi
+          if git merge-base --is-ancestor origin/main origin/develop; then
+            echo "main 이 이미 develop 에 들어가 있습니다."
+            exit 0
+          fi
+          if [[ -n "$(gh pr list --base develop --head main --state open --json number --jq '.[].number')" ]]; then
+            echo "열린 역머지 PR 이 이미 있습니다."
+            exit 0
+          fi
+
+          body="$(cat <<'EOF'
+          main 의 변경(hotfix·출시 merge commit)을 develop 에 반영합니다. 이 워크플로(back-merge.yml)가 자동으로 열었습니다.
+
+          - **merge commit 으로 머지하세요(squash 금지).** squash 하면 main 의 커밋이 develop 의 조상이 되지 않아 다음 main 푸시에서 이 PR 이 다시 열립니다.
+          - 충돌이 나면 이 PR 을 닫고 따로 PR 을 만드세요.
+            ```
+            git switch -c chore/back-merge develop
+            git merge origin/main
+            ```
+          EOF
+          )"
+          if ! gh pr create --base develop --head main --title "chore: main 을 develop 에 역머지" --body "$body"; then
+            echo "::error::역머지 PR 을 만들지 못했습니다. 권한 문제라면 Settings > Actions > General 의 'Allow GitHub Actions to create and approve pull requests' 를 켜세요(README '배포를 켜기 전')."
+            exit 1
+          fi

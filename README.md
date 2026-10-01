@@ -205,9 +205,58 @@ Networking 은 서버가 필요하고 미들웨어는 테스트가 덮는다. Di
 ./.claude/scripts/xcbuild.sh test -only-testing:TuistAppUITests
 ```
 
+## 브랜치와 배포
+
+| 브랜치 | 어디서 딴다 | PR 대상 | 머지 방식 |
+| --- | --- | --- | --- |
+| `feature/*` | `develop` | `develop` | squash 가능 |
+| `hotfix/*` | `main` | `main` | squash 가능. 머지 후 역머지 PR 이 자동으로 열린다 |
+| `develop` | (기본 브랜치) | 출시할 때 `main` 으로 | **merge commit** |
+| `main` | — | — | 출시 브랜치. 푸시마다 TestFlight 에 올라간다 |
+
+`main` → `develop` 역머지 PR 도 merge commit 으로 머지한다. squash 하면 `main` 의 커밋이 `develop` 의 조상이 되지 않아
+다음 `main` 푸시에서 역머지 PR 이 다시 열린다.
+
+| 이벤트 | 도는 워크플로 |
+| --- | --- |
+| PR(모든 대상) | `ci.yml`(`lint`, `build-test`, `release-build`), 경로가 맞으면 `templates.yml` |
+| `main` 대상 PR(출시·hotfix) | 위에 더해 `ci.yml` 의 `release-archive`(서명 없는 Release 아카이브) |
+| `develop` 푸시 | `ci.yml`, 경로가 맞으면 `templates.yml` |
+| `main` 푸시 | `ci.yml`, `templates.yml`(경로), `deploy.yml`(Release → TestFlight, 태그), `back-merge.yml`(필요하면 역머지 PR) |
+| 수동 실행(Actions > Deploy) | `deploy.yml`. 기본은 Staging → 내부 TestFlight. Release 는 `main` 에서만 된다 |
+
+배포 로직은 `Scripts/release.sh`(`preflight`, `write-secrets`, `archive`, `upload`, `version`)에 있고 워크플로는 이를 부르기만 한다.
+서명은 App Store Connect API 키로 하는 cloud signing(`xcodebuild -allowProvisioningUpdates`)이라 인증서·프로필을 따로 두지 않는다.
+로컬에서 서명 없이 아카이브만 확인하려면 다음을 돌린다.
+
+```bash
+BUILD_NUMBER=1 Scripts/release.sh archive Release --unsigned
+```
+
+- **빌드 번호**는 `github.run_number + BUILD_NUMBER_OFFSET`(저장소 변수, 기본 0)이다. 앱과 익스텐션에 같은 번호가 들어간다.
+  워크플로 파일을 다시 만들거나 저장소를 옮겨 `run_number` 가 줄면 `BUILD_NUMBER_OFFSET` 을 App Store Connect 의 최신 빌드 번호 이상으로 올린다.
+- **태그**: Release 업로드가 끝나면 `v<MARKETING_VERSION>-<빌드 번호>` 태그를 단다. Staging 은 태그를 달지 않는다.
+- **`MARKETING_VERSION`** 은 출시 PR 을 열기 전에 `develop` 에서 올린다(`Configurations/Release.xcconfig`,
+  Staging 은 `Staging.xcconfig`). 이미 심사를 통과한 버전으로 올리면 업로드가 거절된다.
+- 심사 제출은 사람이 App Store Connect 에서 한다. Release 빌드는 외부 테스트·심사에 쓸 수 있고, Staging 빌드는 내부 테스트 전용이다.
+- **시크릿이 없으면** `deploy.yml` 은 `preflight` 만 돌고 `deploy` 잡을 건너뛴다(성공, 실행 요약에 안내).
+  `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` 중 일부만 있거나 Team ID 가 비어 있으면 `preflight` 가 실패한다.
+  배포만 멈추려면 이 시크릿을 지운다.
+- 같은 구성의 배포는 한 번에 하나만 돈다. 업로드 중에는 취소하지 않고, 기다리는 동안 새 `main` 푸시가 오면 대기 중이던
+  실행은 새 것으로 대체된다(최신 `main` 만 올라간다).
+- **역머지 PR** 은 `GITHUB_TOKEN` 으로 만들어 CI 가 새로 돌지 않는다. head 가 `main` 의 커밋이라 `main` 푸시 때 돈 CI 결과가
+  붙어 있다. required check 가 "대기 중"으로 남으면 Actions > CI 를 `main` 에서 수동 실행한다.
+- `release-archive` 와 `release-build` 는 Firebase plist 가 있으면 PR 마다 Crashlytics 에 dSYM 을 올린다(기존 동작). 막으려면 별도 작업이 필요하다.
+- **`develop` 없이 쓰려면** `back-merge.yml` 을 지우고, 기본 브랜치를 `main` 으로 두고, 기능 PR 을 `main` 으로 보낸다.
+  그러면 `main` 머지마다 TestFlight 에 올라간다.
+- **fastlane match 로 바꾸려면** 인증서·프로필을 match 저장소에 두고, `release.sh` 의 `archive`·`upload` 를
+  `fastlane gym`/`pilot` 호출로 바꾼다. 워크플로의 preflight·빌드 번호·태그 스텝은 그대로 쓸 수 있다.
+- **승인 게이트**(GitHub Environments 의 required reviewers)를 쓸 수 있는 플랜이면 `deploy.yml` 의 `deploy` 잡에
+  `environment:` 를 더하고 시크릿을 그 Environment 로 옮긴다. 템플릿은 플랜에 의존하지 않도록 쓰지 않는다.
+
 ## CI
 
-`.github/workflows/ci.yml` 이 PR 과 `main` 푸시마다 세 잡을 병렬로 돌린다.
+`.github/workflows/ci.yml` 이 PR 과 `main`·`develop` 푸시마다 세 잡을 병렬로 돌린다. `main` 대상 PR 에서는 `release-archive` 가 더 돈다.
 두 빌드 잡의 공통 셋업(mise → SPM 캐시 → `tuist install` → `tuist generate`)은 `.github/actions/setup` 한 곳에 있다.
 Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
 
@@ -216,6 +265,7 @@ Tuist 계정·시크릿·저장소 변수가 없어도 그대로 동작한다.
 | `lint` | swiftformat 포맷, SwiftLint(error 만 실패), OpenAPI 생성물이 명세와 일치하는지 |
 | `build-test` | 셋업 → 모든 모듈 테스트(Debug, 커버리지 수집) → 잡 요약에 커버리지 표 |
 | `release-build` | 셋업 → 의존성 검사(`tuist inspect dependencies`: 암묵적·중복 의존) → Release 빌드. Release 에서만 나는 컴파일 에러(`#if DEBUG` 분기 등)를 잡는다. Staging 은 컴파일 조건이 같아 따로 빌드하지 않는다 |
+| `release-archive` | `main` 대상 PR 에서만. 셋업 → 서명 없는 Release 아카이브(`Scripts/release.sh archive Release --unsigned`). 아카이브·스킴 문제를 머지 전에 잡는다. 다른 PR 에서는 건너뛴다(skipped) |
 
 로컬에서 같은 검사를 재현하려면 저장소 루트에서 다음을 돌린다.
 
@@ -260,11 +310,12 @@ tuist inspect dependencies
   저장소 변수 `MACOS_RUNNER` 를 만들면 코드 수정 없이 다른 라벨(GA 라벨, 자체 호스팅 등)로 바꿀 수 있다.
 - **Xcode 메이저를 올릴 때**는 `Tuist.swift` 의 `compatibleXcodeVersions` 와 `ci.yml` 의 기본 러너 라벨
   (또는 `MACOS_RUNNER`)을 함께 바꾼다. 둘이 어긋나면 `tuist generate` 가 멈춘다.
-- **브랜치 보호**에서 `lint`, `build-test`, `release-build` 를 required status check 로 거는 것을 권장한다.
-  이미 `lint`, `build-test` 만 걸어 두었다면 `release-build` 를 추가한다. 빠져 있으면 Release 에서만 깨지는 PR 이 머지된다.
+- **브랜치 보호**에서 `lint`, `build-test`, `release-build`, `release-archive` 를 required status check 로 거는 것을 권장한다.
+  이미 `lint`, `build-test` 만 걸어 두었다면 나머지를 추가한다. 빠져 있으면 Release 에서만 깨지는 PR 이 머지된다.
+  `release-archive` 는 `main` 대상이 아닌 PR 에서 건너뛰는데, 건너뛴 잡은 required check 를 만족한다.
   워크플로를 지우거나 잡 이름을 바꾸기 전에는 이 설정을 먼저 풀어야 PR 이 막히지 않는다.
 - macOS 러너는 분당 과금 배수가 크다(비공개 저장소). 같은 PR 에 새 커밋이 오면 이전 실행은 취소된다.
-  `main` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
+  `main`·`develop` 푸시는 커밋마다 따로 돌아 연달아 머지해도 모든 커밋에 결과가 남는다.
 - 외부 액션은 커밋 SHA 로 고정돼 있다(뒤에 버전 주석). Dependabot(`.github/dependabot.yml`)이 월 1회
   모든 액션을 PR 하나로 묶어 SHA 와 주석을 함께 올린다. 손으로 올릴 때도 둘을 함께 바꾼다.
 - **템플릿 검증**: `.github/workflows/templates.yml` 이 `Tuist/**`, `Scripts/new-module.sh`, `mise.toml` 등이 바뀐 PR 에서만
@@ -397,7 +448,25 @@ mise exec -- tuist install && mise exec -- tuist generate
 
 - [ ] `Configurations/Staging.xcconfig` 의 `API_BASE_URL` 을 실제 스테이징 서버로 바꾼다.
 - [ ] TestFlight 로 배포하려면 App Store Connect 에 Staging 번들 ID(`….stg`)로 앱을 따로 만든다. Ad Hoc 이면 기기 등록이 필요하다.
-- [ ] 아카이브는 `TuistApp-Staging` 스킴으로 만든다.
+- [ ] 배포는 Actions > Deploy 를 Staging 으로 수동 실행한다. 먼저 아래 **배포를 켜기 전** 을 마친다.
+
+**배포를 켜기 전**
+
+순서대로 한다. 끝나기 전까지 `deploy.yml` 은 건너뛰고(성공) CI 는 그대로 돈다. 자세한 동작은 "브랜치와 배포".
+
+- [ ] `main` 에서 `develop` 을 만들어 푸시하고, GitHub 기본 브랜치를 `develop` 으로 바꾼다.
+- [ ] Settings > Rules 에서 rulesets 를 만든다.
+  - `main`·`develop`: PR 필수, required checks(`lint`, `build-test`, `release-build`, `release-archive`)
+  - `main`: merge commit 허용(출시 PR·역머지 PR 이 merge commit 이어야 한다)
+  - 태그 `v*`: 삭제·갱신 금지
+- [ ] Settings > Actions > General 에서 "Allow GitHub Actions to create and approve pull requests" 를 켠다. 꺼져 있으면 역머지 PR 생성이 실패한다.
+- [ ] `Configurations/Signing.xcconfig` 의 `DEVELOPMENT_TEAM` 에 Team ID 를 적어 커밋한다(`develop` 경유). 비어 있으면 `preflight` 가 실패한다.
+- [ ] App Store Connect 에 Release 번들 ID 로 앱을 만든다(Staging 을 쓰면 `….stg` 앱도). App ID 의 Push Notifications 기능을 확인한다.
+- [ ] App Store Connect > 사용자 및 액세스 > 통합 에서 API 키를 발급한다. 역할은 Admin 을 권장한다(cloud signing 에 필요한 최소 역할은 확인하지 않았다).
+- [ ] 저장소 시크릿을 등록한다: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8`(내려받은 .p8 파일 원문), `CLIENT_KEYS_XCCONFIG`(선택. `ClientKeys.xcconfig` 내용. 없으면 경고 후 키 없이 빌드).
+- [ ] 저장소 변수 `BUILD_NUMBER_OFFSET` 을 등록한다(선택. 이미 출시한 앱이면 App Store Connect 의 최신 빌드 번호 이상).
+- [ ] `App/Project.swift` 의 `ITSAppUsesNonExemptEncryption`(기본 `false`)이 앱에 맞는지 확인한다. 자체 암호화를 쓰면 `true` 로 바꾸고 수출 규정 문서를 낸다.
+- [ ] Actions > Deploy 를 Staging 으로 수동 실행해 첫 업로드를 확인한다. 그다음 `develop` → `main` 출시 PR 을 연다.
 
 **App Store 에 제출하기 전**
 
@@ -408,6 +477,8 @@ mise exec -- tuist install && mise exec -- tuist generate
 - [ ] `Configurations/Release.xcconfig` 의 `API_BASE_URL`, `MARKETING_VERSION` 을 실제 값으로 바꾼다.
 
 `.github/workflows/ci.yml`, `.github/actions/setup/` 은 바꿀 곳이 없다. 스킴·워크스페이스 이름은 `xcbuild.sh` 에서 읽는다.
+`.github/workflows/deploy.yml`, `.github/workflows/back-merge.yml`, `Scripts/release.sh` 도 앱 이름을 쓰지 않는다.
+`release.sh` 는 `AppConstants.swift` 의 `appName` 에서 스킴·워크스페이스 이름을 정한다.
 `.github/pull_request_template.md`, `Scripts/coverage-summary.sh` 도 앱·모듈 이름을 쓰지 않아 바꿀 곳이 없다.
 앱 표시 이름(`APP_DISPLAY_NAME`)은 xcconfig 가 `$(APP_NAME)` 으로 `appName` 을 따라간다.
 

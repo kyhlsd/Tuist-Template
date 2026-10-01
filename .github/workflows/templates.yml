@@ -1,6 +1,6 @@
 # 모듈 템플릿(Tuist/Templates)으로 만든 모듈이 그대로 CI 를 통과하는지 확인한다. 내용은 Scripts/verify-templates.sh 에 있다.
 #
-# 템플릿·헬퍼·모듈 생성 스크립트·도구 버전·스캐폴드가 쓰는 모듈 API 가 바뀐 PR 과 main 푸시에서만 돈다.
+# 템플릿·헬퍼·모듈 생성 스크립트·도구 버전·스캐폴드가 쓰는 모듈 API 가 바뀐 PR 과 main·develop 푸시에서만 돈다.
 # 스텐실이 새 모듈 API 를 쓰게 되면 그 경로를 아래 paths 두 곳에 함께 더한다. 사본을 처음부터 빌드하므로 몇 분 걸린다.
 # 경로 필터가 있어 관련 없는 PR 에서는 잡이 아예 생기지 않는다. 그래서 브랜치 보호의 required check 로 걸면
 # 그런 PR 이 "대기 중"으로 막힌다. required 로 걸지 않는다.
@@ -23,7 +23,7 @@ on:
       - ".claude/scripts/xcbuild.sh"
       - ".github/actions/setup/**"
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "Tuist/**"
       - "Scripts/new-module.sh"

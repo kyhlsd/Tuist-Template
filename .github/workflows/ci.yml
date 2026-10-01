@@ -1,10 +1,11 @@
-# PR 과 main 푸시마다 lint, build-test, release-build 세 잡을 병렬로 돌린다.
+# PR 과 main·develop 푸시마다 lint, build-test, release-build 세 잡을 병렬로 돌린다.
+# main 대상 PR(출시·hotfix)에서는 release-archive 잡이 더 돈다.
 #
 # 러너: 저장소 변수 MACOS_RUNNER 가 있으면 그 라벨을, 없으면 xcode-27 을 쓴다.
 #   Xcode 27 을 주는 GitHub 호스티드 러너는 xcode-27(preview) 뿐이다.
 # Xcode 메이저를 올릴 때는 Tuist.swift 의 compatibleXcodeVersions 와
 #   아래 기본 러너 라벨(또는 MACOS_RUNNER)을 함께 바꾼다.
-# 앱·스킴·워크스페이스 이름은 이 파일에 없다. .claude/scripts/xcbuild.sh 한 곳에서 읽는다.
+# 앱·스킴·워크스페이스 이름은 이 파일에 없다. .claude/scripts/xcbuild.sh 와 Scripts/release.sh 가 정한다.
 # 외부 액션은 태그가 옮겨져도 검토하지 않은 코드가 돌지 않도록 커밋 SHA 로 고정한다.
 #   올릴 때는 새 태그의 SHA 와 뒤의 버전 주석을 함께 바꾼다.
 name: CI
@@ -12,14 +13,14 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 # PR 은 ref 로 묶어 새 커밋이 오면 이전 실행을 취소한다.
-# main 은 커밋(sha)마다 그룹을 따로 둔다. 같은 그룹이면 cancel-in-progress 가 false 여도
+# 푸시(main·develop)는 커밋(sha)마다 그룹을 따로 둔다. 같은 그룹이면 cancel-in-progress 가 false 여도
 # 대기 중인 실행이 새 실행에 밀려 취소되므로, 연달아 머지된 커밋의 결과가 빠진다.
 concurrency:
   group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -124,3 +125,21 @@ jobs:
 
       - name: Release 빌드
         run: ./.claude/scripts/xcbuild.sh build -configuration Release
+
+  # 출시·hotfix PR(base main)에서만 서명 없이 Release 를 아카이브한다. 아카이브·스킴 문제를 머지 전에 잡는다.
+  # 시크릿이 필요 없어 포크 PR 에서도 돈다. 다른 PR 에서는 skipped 라 required check 로 걸어도 막히지 않는다.
+  release-archive:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 30
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 셋업
+        uses: ./.github/actions/setup
+
+      - name: Release 아카이브 (서명 없음)
+        run: Scripts/release.sh archive Release --unsigned
+        env:
+          BUILD_NUMBER: 0
