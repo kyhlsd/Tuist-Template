@@ -9,7 +9,7 @@ runs:
     # lint 와 같은 mise 캐시 키를 쓰므로 mise.toml 전체를 설치한다.
     # mise-action 은 도구 경로를 GITHUB_PATH 에 올리므로 이 액션 밖의 스텝에서도 쓸 수 있다.
     - name: 도구 설치 (mise)
-      uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
 
     - name: Xcode 버전
       shell: bash
