@@ -11,6 +11,9 @@ import SwiftUI
 
 extension AppContainer {
     /// Home 탭의 루트 화면.
+    ///
+    /// 부르는 `body` 가 다시 평가될 때마다 `HomeViewModel` 이 새로 만들어진다. 화면은 `@State` 로 처음 인스턴스만
+    /// 쓰므로 나머지는 바로 버려진다. 그래서 뷰모델 `init` 에는 부수효과(호출 시작, 구독, 로그)를 두지 않는다.
     func makeHomeView(router: any Routing) -> HomeView {
         HomeView(
             viewModel: HomeViewModel(
