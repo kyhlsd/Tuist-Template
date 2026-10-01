@@ -3,6 +3,8 @@
 //  NotificationService
 //
 
+import Foundation
+import os
 import Push
 import UserNotifications
 
@@ -37,8 +39,28 @@ final class NotificationService: UNNotificationServiceExtension {
                 content.attachments = try await [loader.attachment(from: imageURL)]
             } catch {
                 // 이미지가 없어도 알림은 보여야 한다. 첨부 없이 원래 내용으로 보낸다.
+                // 원인을 가릴 수 있게 타입과 코드만 남긴다. 타입 이름은 브리징된 이름으로 찍힌다.
+                // 2xx 아닌 응답은 `LoadError(0)`, 다운로드 실패(타임아웃 등)는 `NSURLError(<URLError 코드>)`,
+                // 임시 파일 이동 실패와 첨부 생성 실패(확장자 없음 등)는 `NSError(<CocoaError·UNError 코드>)` 다.
+                // URL 에는 사용자별 값이 담길 수 있어 남기지 않는다.
+                Self.logger.error("이미지 첨부 실패: \(Self.describe(error), privacy: .public)")
             }
             deliver(content)
         }
     }
+
+    private static func describe(_ error: any Error) -> String {
+        "\(String(describing: type(of: error)))(\((error as NSError).code))"
+    }
+
+    private static let logger: Logger = {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+            preconditionFailure("번들 ID 가 없습니다. 로그 subsystem 을 정할 수 없습니다.")
+        }
+        return Logger(subsystem: bundleIdentifier, category: LogCategory.attachment)
+    }()
+}
+
+private enum LogCategory {
+    static let attachment = "PushAttachment"
 }
