@@ -1,7 +1,7 @@
 ---
 name: ios-review
 description: 구현이 끝난 Swift 변경분을 격리된 컨텍스트에서 검토하고 심각도별 지적 사항을 돌려줍니다. 커밋이나 PR 전에 사용하세요.
-argument-hint: "[비교 기준 ref, 기본값 origin/main]"
+argument-hint: "[비교 기준 ref, 기본값 origin/develop]"
 context: fork
 agent: ios-reviewer
 background: false
@@ -9,7 +9,10 @@ disable-model-invocation: true
 effort: high
 ---
 
-비교 기준: $ARGUMENTS (비어 있으면 `origin/main`, 없으면 `main`, 그것도 없으면 `HEAD~1`)
+비교 기준: $ARGUMENTS (비어 있으면 `origin/develop`, `develop`, `origin/main`, `main`, `HEAD~1` 중 처음 있는 것)
+
+기능 브랜치는 `develop` 에서 따므로 기본값이 `develop`입니다. hotfix 처럼 `main` 에서 딴 브랜치는
+`/ios-review origin/main`으로 기준을 넘깁니다. `develop`과 비교하면 아직 역머지되지 않은 `main` 커밋이 섞입니다.
 
 ## 순서
 
