@@ -42,3 +42,4 @@
 `/ios-implement` → `/ios-review` 순서입니다. 계획 문서가 세션 인계 수단이라 구현은
 대화 이력이 아니라 그 문서만 입력으로 씁니다. 각 스킬이 끝날 때 다음 단계를 안내합니다.
 자세한 건 `.claude/README.md`(컨텍스트에 실리지 않습니다).
+기능 브랜치는 `develop` 에서 따고 `develop` 으로 PR 합니다(hotfix 만 `main`). 자세한 건 README '브랜치와 배포'.

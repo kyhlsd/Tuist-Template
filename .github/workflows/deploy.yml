@@ -1,0 +1,140 @@
+# main 푸시마다 Release 를 아카이브해 TestFlight 에 올리고 v<MARKETING_VERSION>-<빌드 번호> 태그를 단다.
+# 수동 실행(workflow_dispatch)으로는 Staging(.stg) 을 내부 TestFlight 에 올린다. Release 수동 실행은 main 에서만 된다.
+# 심사 제출은 사람이 App Store Connect 에서 한다. 로직은 Scripts/release.sh 에 있다.
+#
+# 배포 시크릿(ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8)이 하나도 없으면 deploy 잡을 건너뛴다(성공).
+#   새 템플릿 저장소의 CI 가 처음부터 초록이도록 하기 위해서다. 일부만 있으면 preflight 가 실패한다.
+# 빌드 번호: github.run_number + 저장소 변수 BUILD_NUMBER_OFFSET(기본 0).
+#   빌드 전에 알 수 있어 태그와 업로드가 일치한다. 워크플로를 다시 만들거나 저장소를 옮겨 run_number 가
+#   줄어들면 BUILD_NUMBER_OFFSET 을 App Store Connect 의 최신 빌드 번호 이상으로 올린다.
+# 동시성: 구성별 한 그룹, cancel-in-progress: false. 업로드 중인 실행은 취소하지 않는다.
+#   ci.yml 과 달리 대기 중인 실행이 새 실행으로 대체되는 것은 허용한다. 최신 main 만 올라가면 된다.
+# GITHUB_TOKEN 으로 푸시한 태그는 다른 워크플로를 트리거하지 않는다.
+# 포크 PR 에는 시크릿이 없으므로 pull_request 트리거를 두지 않는다(pull_request_target 도 쓰지 않는다).
+# 러너·액션 고정 방식은 ci.yml 과 같다.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 배포할 구성(Release 는 main 에서만)
+        type: choice
+        options: [Staging, Release]
+        default: Staging
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+      team_id: ${{ steps.check.outputs.team_id }}
+      configuration: ${{ steps.configuration.outputs.configuration }}
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 구성 결정
+        id: configuration
+        env:
+          INPUT_CONFIGURATION: ${{ inputs.configuration }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            configuration="$INPUT_CONFIGURATION"
+          else
+            configuration=Release
+          fi
+          if [[ "$configuration" == "Release" && "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Release 는 main 에서만 배포합니다(현재 $GITHUB_REF)."
+            exit 1
+          fi
+          echo "configuration=$configuration" >> "$GITHUB_OUTPUT"
+
+      - name: 시크릿·Team ID 확인
+        id: check
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: Scripts/release.sh preflight
+
+      - name: 건너뜀 안내
+        if: steps.check.outputs.configured == 'false'
+        run: |
+          echo "::notice::배포 시크릿이 없어 배포를 건너뜁니다. README '배포를 켜기 전' 을 보세요."
+          {
+            echo "### 배포 건너뜀"
+            echo
+            echo "배포 시크릿(ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8)이 없어 건너뜁니다. README '배포를 켜기 전' 을 보세요."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: preflight
+    if: needs.preflight.outputs.configured == 'true'
+    runs-on: ${{ vars.MACOS_RUNNER || 'xcode-27' }}
+    timeout-minutes: 60
+    permissions:
+      contents: write # 태그 푸시
+    concurrency:
+      group: deploy-${{ needs.preflight.outputs.configuration }}
+      cancel-in-progress: false
+    env:
+      CONFIGURATION: ${{ needs.preflight.outputs.configuration }}
+      TEAM_ID: ${{ needs.preflight.outputs.team_id }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: 셋업
+        uses: ./.github/actions/setup
+
+      - name: 시크릿 파일 쓰기
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          CLIENT_KEYS_XCCONFIG: ${{ secrets.CLIENT_KEYS_XCCONFIG }}
+        run: |
+          key_path="$(Scripts/release.sh write-secrets)"
+          echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+
+      - name: 빌드 번호
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          BUILD_NUMBER_OFFSET: ${{ vars.BUILD_NUMBER_OFFSET }}
+        run: |
+          echo "BUILD_NUMBER=$(( RUN_NUMBER + ${BUILD_NUMBER_OFFSET:-0} ))" >> "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$(Scripts/release.sh version "$CONFIGURATION")" >> "$GITHUB_ENV"
+
+      - name: 아카이브
+        run: Scripts/release.sh archive "$CONFIGURATION"
+
+      - name: TestFlight 업로드
+        run: Scripts/release.sh upload "$CONFIGURATION"
+
+      - name: 태그
+        if: env.CONFIGURATION == 'Release'
+        run: |
+          tag="v$MARKETING_VERSION-$BUILD_NUMBER"
+          git tag "$tag"
+          git push origin "$tag"
+
+      - name: 요약
+        run: |
+          {
+            echo "### TestFlight 업로드"
+            echo
+            echo "| 구성 | 버전 | 빌드 번호 | 커밋 |"
+            echo "|---|---|---|---|"
+            echo "| $CONFIGURATION | $MARKETING_VERSION | $BUILD_NUMBER | $GITHUB_SHA |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: p8 키 삭제
+        if: always()
+        run: rm -f "${ASC_KEY_PATH:-}"

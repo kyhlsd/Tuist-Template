@@ -76,6 +76,9 @@ let project = Project.app(
     additionalInfoPlist: [
         // Analytics 가 광고 네트워크(SKAdNetwork)에 앱을 등록하지 않게 한다. 광고 기여 측정을 쓰지 않는다.
         "GOOGLE_ANALYTICS_REGISTRATION_WITH_AD_NETWORK_ENABLED": false,
+        // HTTPS 등 OS 제공 암호화만 쓰면 면제다.
+        // 자체 암호화를 넣으면 true 로 바꾸고 App Store Connect 에 수출 규정 문서를 낸다.
+        "ITSAppUsesNonExemptEncryption": false,
     ],
     entitlements: .dictionary([
         // 원격 푸시. 값은 xcconfig 의 APS_ENVIRONMENT(Debug: development, Release: production)다.
