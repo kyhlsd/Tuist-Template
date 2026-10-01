@@ -7,8 +7,15 @@
 # 빌드 번호: github.run_number + 저장소 변수 BUILD_NUMBER_OFFSET(기본 0).
 #   빌드 전에 알 수 있어 태그와 업로드가 일치한다. 워크플로를 다시 만들거나 저장소를 옮겨 run_number 가
 #   줄어들면 BUILD_NUMBER_OFFSET 을 App Store Connect 의 최신 빌드 번호 이상으로 올린다.
-# 동시성: 구성별 한 그룹, cancel-in-progress: false. 업로드 중인 실행은 취소하지 않는다.
+# 동시성: 워크플로 전체를 구성별 한 그룹으로 묶고 cancel-in-progress: false. 업로드 중인 실행은 취소하지 않는다.
 #   ci.yml 과 달리 대기 중인 실행이 새 실행으로 대체되는 것은 허용한다. 최신 main 만 올라가면 된다.
+#   deploy 잡에만 걸면 preflight 가 먼저 끝난 나중 실행이 그룹을 먼저 잡아, 오래된 커밋이 더 낮은 빌드 번호로
+#   나중에 올라갈 수 있다. 그래서 그룹 이름을 preflight 출력이 아니라 이벤트·입력에서 정한다.
+#   Release 그룹은 ref 별이다. main 밖의 Release 수동 실행은 preflight 에서 실패하는데, 같은 그룹이면 그 실행이
+#   main 의 대기 중인 배포를 밀어내 취소시킨다. Staging 은 같은 .stg 앱의 빌드 번호 순서를 지키도록 브랜치와 상관없이
+#   한 그룹이다. 그래서 Staging 수동 실행끼리도 대기 중인 것은 나중 실행으로 대체된다(취소됐으면 다시 실행한다).
+# 태그는 업로드 뒤에 단다. 업로드는 됐는데 태그 푸시만 실패하면, 재실행은 같은 빌드 번호라 업로드에서 거절된다.
+#   잡 요약에 나오는 복구 명령으로 태그만 손으로 단다(README '브랜치와 배포').
 # GITHUB_TOKEN 으로 푸시한 태그는 다른 워크플로를 트리거하지 않는다.
 # 포크 PR 에는 시크릿이 없으므로 pull_request 트리거를 두지 않는다(pull_request_target 도 쓰지 않는다).
 # 러너·액션 고정 방식은 ci.yml 과 같다.
@@ -27,6 +34,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.configuration == 'Staging' && 'Staging' || format('Release-{0}', github.ref) }}
+  cancel-in-progress: false
 
 jobs:
   preflight:
@@ -81,11 +92,9 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write # 태그 푸시
-    concurrency:
-      group: deploy-${{ needs.preflight.outputs.configuration }}
-      cancel-in-progress: false
     env:
-      CONFIGURATION: ${{ needs.preflight.outputs.configuration }}
+      # Xcode 빌드 설정 CONFIGURATION 과 겹치지 않는 이름을 쓴다. 잡 환경은 xcodebuild 에도 들어간다.
+      DEPLOY_CONFIGURATION: ${{ needs.preflight.outputs.configuration }}
       TEAM_ID: ${{ needs.preflight.outputs.team_id }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -96,45 +105,65 @@ jobs:
       - name: 셋업
         uses: ./.github/actions/setup
 
+      # ClientKeys.xcconfig 는 이 실행이 새로 쓴 경우에만 마지막에 지운다(자체 호스팅 러너에 남지 않게).
       - name: 시크릿 파일 쓰기
         env:
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
           CLIENT_KEYS_XCCONFIG: ${{ secrets.CLIENT_KEYS_XCCONFIG }}
         run: |
+          client_keys=Configurations/ClientKeys.xcconfig
+          [[ -f "$client_keys" ]] || echo "CLIENT_KEYS_WRITTEN=$client_keys" >> "$GITHUB_ENV"
           key_path="$(Scripts/release.sh write-secrets)"
           echo "ASC_KEY_PATH=$key_path" >> "$GITHUB_ENV"
 
+      # 값을 변수에 먼저 받는다. $(...) 를 echo 인자에 바로 쓰면 version 이 실패해도 스텝이 성공한다.
       - name: 빌드 번호
         env:
           RUN_NUMBER: ${{ github.run_number }}
           BUILD_NUMBER_OFFSET: ${{ vars.BUILD_NUMBER_OFFSET }}
         run: |
-          echo "BUILD_NUMBER=$(( RUN_NUMBER + ${BUILD_NUMBER_OFFSET:-0} ))" >> "$GITHUB_ENV"
-          echo "MARKETING_VERSION=$(Scripts/release.sh version "$CONFIGURATION")" >> "$GITHUB_ENV"
+          build_number=$(( RUN_NUMBER + ${BUILD_NUMBER_OFFSET:-0} ))
+          version="$(Scripts/release.sh version "$DEPLOY_CONFIGURATION")"
+          echo "BUILD_NUMBER=$build_number" >> "$GITHUB_ENV"
+          echo "MARKETING_VERSION=$version" >> "$GITHUB_ENV"
 
       - name: 아카이브
-        run: Scripts/release.sh archive "$CONFIGURATION"
+        run: Scripts/release.sh archive "$DEPLOY_CONFIGURATION"
 
       - name: TestFlight 업로드
-        run: Scripts/release.sh upload "$CONFIGURATION"
+        id: upload
+        run: Scripts/release.sh upload "$DEPLOY_CONFIGURATION"
 
       - name: 태그
-        if: env.CONFIGURATION == 'Release'
+        id: tag
+        if: env.DEPLOY_CONFIGURATION == 'Release'
         run: |
           tag="v$MARKETING_VERSION-$BUILD_NUMBER"
           git tag "$tag"
           git push origin "$tag"
 
       - name: 요약
+        if: always()
+        env:
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          TAG_OUTCOME: ${{ steps.tag.outcome }}
         run: |
           {
             echo "### TestFlight 업로드"
             echo
-            echo "| 구성 | 버전 | 빌드 번호 | 커밋 |"
-            echo "|---|---|---|---|"
-            echo "| $CONFIGURATION | $MARKETING_VERSION | $BUILD_NUMBER | $GITHUB_SHA |"
+            echo "| 구성 | 버전 | 빌드 번호 | 커밋 | 업로드 | 태그 |"
+            echo "|---|---|---|---|---|---|"
+            echo "| $DEPLOY_CONFIGURATION | ${MARKETING_VERSION:-} | ${BUILD_NUMBER:-} | $GITHUB_SHA | ${UPLOAD_OUTCOME:-} | ${TAG_OUTCOME:-} |"
+            if [[ "$UPLOAD_OUTCOME" == "success" && "$TAG_OUTCOME" == "failure" ]]; then
+              echo
+              echo "업로드는 됐지만 태그를 달지 못했습니다. 재실행하면 업로드에서 거절되므로 태그만 손으로 답니다."
+              echo
+              echo '```bash'
+              echo "git tag v$MARKETING_VERSION-$BUILD_NUMBER $GITHUB_SHA && git push origin v$MARKETING_VERSION-$BUILD_NUMBER"
+              echo '```'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: p8 키 삭제
+      - name: 시크릿 파일 삭제
         if: always()
-        run: rm -f "${ASC_KEY_PATH:-}"
+        run: rm -f "${ASC_KEY_PATH:-}" "${CLIENT_KEYS_WRITTEN:-}"

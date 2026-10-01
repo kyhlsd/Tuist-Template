@@ -60,12 +60,15 @@ configuration_arg() {
     esac
 }
 
+# 아래 두 함수는 앱 이름을 인자로 받는다. 안에서 $(app_name) 을 부르면 printf 인자 속 실패가 묻혀 빈 이름으로 진행된다.
+# scheme_for <앱 이름> <구성>
 scheme_for() {
-    if [[ "$1" == "Release" ]]; then app_name; else printf '%s-Staging' "$(app_name)"; fi
+    if [[ "$2" == "Release" ]]; then printf '%s' "$1"; else printf '%s-Staging' "$1"; fi
 }
 
+# archive_path_for <앱 이름> <구성>
 archive_path_for() {
-    printf '%s' "${ARCHIVE_PATH:-$tmp_dir/$(app_name)-$1.xcarchive}"
+    printf '%s' "${ARCHIVE_PATH:-$tmp_dir/$1-$2.xcarchive}"
 }
 
 team_id() {
@@ -157,13 +160,18 @@ cmd_archive() {
         *) die "알 수 없는 옵션: $1" ;;
     esac
 
+    # 배열 리터럴 안의 $(...) 실패는 local 의 종료 코드에 가려지므로 값을 먼저 받는다.
+    local name scheme archive_path
+    name="$(app_name)"
+    scheme="$(scheme_for "$name" "$configuration")"
+    archive_path="$(archive_path_for "$name" "$configuration")"
     local args=(
         archive
-        -workspace "$(app_name).xcworkspace"
-        -scheme "$(scheme_for "$configuration")"
+        -workspace "$name.xcworkspace"
+        -scheme "$scheme"
         -configuration "$configuration"
         -destination 'generic/platform=iOS'
-        -archivePath "$(archive_path_for "$configuration")"
+        -archivePath "$archive_path"
     )
     # 명령줄 빌드 설정은 모든 타깃에 적용되므로 앱과 익스텐션의 번들 버전이 같아진다.
     if [[ -n "${BUILD_NUMBER:-}" ]]; then
@@ -208,9 +216,12 @@ cmd_upload() {
     "$buddy" -c "Add :uploadSymbols bool true" "$plist"
     "$buddy" -c "Add :testFlightInternalTestingOnly bool $internal_only" "$plist"
 
+    local name archive_path
+    name="$(app_name)"
+    archive_path="$(archive_path_for "$name" "$configuration")"
     local args=(
         -exportArchive
-        -archivePath "$(archive_path_for "$configuration")"
+        -archivePath "$archive_path"
         -exportOptionsPlist "$plist"
         -exportPath "$work/export"
     )

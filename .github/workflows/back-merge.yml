@@ -17,6 +17,11 @@ permissions:
   contents: read
   pull-requests: write
 
+# main 에 연달아 푸시되면 두 실행이 모두 "열린 PR 없음"을 보고 PR 을 두 번 만들려 한다. 한 번에 하나만 돈다.
+concurrency:
+  group: back-merge
+  cancel-in-progress: false
+
 jobs:
   back-merge:
     runs-on: ubuntu-latest
@@ -55,7 +60,8 @@ jobs:
             ```
           EOF
           )"
+          # 원인은 gh 의 stderr 에 있다. 권한 설정은 가장 흔한 원인일 뿐이라 안내에서 단정하지 않는다.
           if ! gh pr create --base develop --head main --title "chore: main 을 develop 에 역머지" --body "$body"; then
-            echo "::error::역머지 PR 을 만들지 못했습니다. 권한 문제라면 Settings > Actions > General 의 'Allow GitHub Actions to create and approve pull requests' 를 켜세요(README '배포를 켜기 전')."
+            echo "::error::역머지 PR 을 만들지 못했습니다. 원인은 바로 위 gh 출력을 보세요. 권한 오류(\"not permitted to create\" 등)라면 Settings > Actions > General 의 'Allow GitHub Actions to create and approve pull requests' 를 켭니다(README '배포를 켜기 전')."
             exit 1
           fi

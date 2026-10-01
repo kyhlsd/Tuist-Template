@@ -236,14 +236,19 @@ BUILD_NUMBER=1 Scripts/release.sh archive Release --unsigned
 - **빌드 번호**는 `github.run_number + BUILD_NUMBER_OFFSET`(저장소 변수, 기본 0)이다. 앱과 익스텐션에 같은 번호가 들어간다.
   워크플로 파일을 다시 만들거나 저장소를 옮겨 `run_number` 가 줄면 `BUILD_NUMBER_OFFSET` 을 App Store Connect 의 최신 빌드 번호 이상으로 올린다.
 - **태그**: Release 업로드가 끝나면 `v<MARKETING_VERSION>-<빌드 번호>` 태그를 단다. Staging 은 태그를 달지 않는다.
+  업로드는 됐는데 태그 푸시만 실패하면 재실행하지 않는다(같은 빌드 번호라 업로드에서 거절된다). 잡 요약에 나오는 명령
+  `git tag v<버전>-<빌드 번호> <커밋> && git push origin v<버전>-<빌드 번호>` 로 태그만 단다.
 - **`MARKETING_VERSION`** 은 출시 PR 을 열기 전에 `develop` 에서 올린다(`Configurations/Release.xcconfig`,
   Staging 은 `Staging.xcconfig`). 이미 심사를 통과한 버전으로 올리면 업로드가 거절된다.
 - 심사 제출은 사람이 App Store Connect 에서 한다. Release 빌드는 외부 테스트·심사에 쓸 수 있고, Staging 빌드는 내부 테스트 전용이다.
 - **시크릿이 없으면** `deploy.yml` 은 `preflight` 만 돌고 `deploy` 잡을 건너뛴다(성공, 실행 요약에 안내).
   `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` 중 일부만 있거나 Team ID 가 비어 있으면 `preflight` 가 실패한다.
   배포만 멈추려면 이 시크릿을 지운다.
-- 같은 구성의 배포는 한 번에 하나만 돈다. 업로드 중에는 취소하지 않고, 기다리는 동안 새 `main` 푸시가 오면 대기 중이던
-  실행은 새 것으로 대체된다(최신 `main` 만 올라간다).
+- 같은 구성의 배포는 한 번에 하나만 돈다(preflight 를 포함한 워크플로 전체). 업로드 중에는 취소하지 않고, 기다리는 동안 새 `main` 푸시가 오면 대기 중이던
+  실행은 새 것으로 대체된다(최신 `main` 만 올라간다). Release 는 ref 별로 줄을 서므로, `main` 밖에서 Release 를 수동 실행해
+  (어차피 실패한다) `main` 의 대기 중인 배포가 밀려나지 않는다.
+  Staging 수동 실행은 브랜치와 상관없이 한 줄로 선다(같은 `.stg` 앱의 빌드 번호 순서). 대기 중인 것은 나중 실행으로
+  대체되므로, 취소됐으면 다시 실행한다.
 - **역머지 PR** 은 `GITHUB_TOKEN` 으로 만들어 CI 가 새로 돌지 않는다. head 가 `main` 의 커밋이라 `main` 푸시 때 돈 CI 결과가
   붙어 있다. required check 가 "대기 중"으로 남으면 Actions > CI 를 `main` 에서 수동 실행한다.
 - `release-archive` 와 `release-build` 는 Firebase plist 가 있으면 PR 마다 Crashlytics 에 dSYM 을 올린다(기존 동작). 막으려면 별도 작업이 필요하다.
@@ -457,7 +462,8 @@ mise exec -- tuist install && mise exec -- tuist generate
 - [ ] `main` 에서 `develop` 을 만들어 푸시하고, GitHub 기본 브랜치를 `develop` 으로 바꾼다.
 - [ ] Settings > Rules 에서 rulesets 를 만든다.
   - `main`·`develop`: PR 필수, required checks(`lint`, `build-test`, `release-build`, `release-archive`)
-  - `main`: merge commit 허용(출시 PR·역머지 PR 이 merge commit 이어야 한다)
+  - `main`·`develop`: merge commit 허용(출시 PR 은 `main`, 역머지 PR 은 `develop` 대상이고 둘 다 merge commit 이어야 한다).
+    저장소 Settings > General 의 "Allow merge commits" 도 켜져 있어야 한다. 기능 PR 의 squash 는 함께 허용해도 된다.
   - 태그 `v*`: 삭제·갱신 금지
 - [ ] Settings > Actions > General 에서 "Allow GitHub Actions to create and approve pull requests" 를 켠다. 꺼져 있으면 역머지 PR 생성이 실패한다.
 - [ ] `Configurations/Signing.xcconfig` 의 `DEVELOPMENT_TEAM` 에 Team ID 를 적어 커밋한다(`develop` 경유). 비어 있으면 `preflight` 가 실패한다.

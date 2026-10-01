@@ -107,7 +107,7 @@
 | ClientKeys 시크릿 없음 | 경고(`::warning`) 후 진행 | 키를 안 쓰는 앱도 있음. 기존 CI 와 같은 동작 |
 | 역머지 | `main` 푸시마다 필요하면 `main`→`develop` PR 생성(GITHUB_TOKEN) | 사람이 잊기 쉬움. PR head 가 main 의 SHA 라 push CI 결과가 그대로 required check 를 채움 |
 | 출시 PR 검사 | `main` 대상 PR 에서만 `CODE_SIGNING_ALLOWED=NO` Release 아카이브 | 아카이브·스킴 문제를 머지 전에 잡음. 시크릿 불필요 |
-| 배포 동시성 | 그룹 `deploy-<구성>`, `cancel-in-progress: false` | 업로드 중 취소 방지. 대기 중 실행이 최신으로 대체되는 건 허용(최신 main 만 올라가면 됨) |
+| 배포 동시성 | 워크플로 최상위 그룹 `deploy-Staging`(수동 Staging) / `deploy-Release-<ref>`(그 외), `cancel-in-progress: false` | 업로드 중 취소 방지. 대기 중 실행이 최신으로 대체되는 건 허용(최신 main 만 올라가면 됨). 리뷰 결정 R1-1, R2-1(`docs/reviews/feat-template-cd.md`) |
 | Environments | 쓰지 않음 | 플랜 의존 제거 |
 
 ## 변경 계획
@@ -197,7 +197,7 @@
   - 잡 `deploy`:
     - `needs: preflight`, `if: needs.preflight.outputs.configured == 'true'`.
     - 러너는 ci.yml 과 같은 식, `timeout-minutes: 60`.
-    - concurrency `deploy-${{ needs.preflight.outputs.configuration }}`, `cancel-in-progress: false`.
+    - concurrency 는 잡이 아니라 워크플로 최상위에 둔다(위 결정 표 "배포 동시성", 리뷰 결정 R1-1, R2-1).
     - 스텝:
       1. 체크아웃
       2. 셋업
