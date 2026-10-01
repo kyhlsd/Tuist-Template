@@ -132,6 +132,28 @@ struct AuthMiddlewareTests {
         #expect(await store.saveCount == 0)
     }
 
+    @Test("요청을 보낸 뒤 다른 계정으로 로그인하면 401 을 새 계정의 토큰으로 다시 보내지 않는다")
+    func intercept_sessionChangedBeforeUnauthorized_throwsSessionExpired() async {
+        let recorder = RecordingNext(statuses: [.unauthorized, .ok])
+        let session = AuthSession(store: InMemoryTokenStore(tokens: oldTokens), refresh: { [newTokens] _ in newTokens })
+        let middleware = AuthMiddleware(tokenProvider: session, publicOperationIDs: PublicOperation.ids)
+        let otherAccount = AuthTokens(accessToken: "other-access", refreshToken: "other-refresh")
+        // 응답을 기다리는 사이에 로그아웃하고 다른 계정으로 로그인한다.
+        let next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?) = {
+            let response = try await recorder.call($0, $1, $2)
+            try await session.signOut()
+            try await session.signIn(with: otherAccount)
+            return response
+        }
+
+        await #expect(throws: AuthenticationError.sessionExpired) {
+            try await middleware.intercept(
+                request, body: nil, baseURL: baseURL, operationID: protectedOperation, next: next
+            )
+        }
+        #expect(await recorder.authorizations == ["Bearer old-access"])
+    }
+
     private func makeMiddleware(store: InMemoryTokenStore) -> AuthMiddleware {
         let newTokens = newTokens
         let session = AuthSession(store: store, refresh: { _ in newTokens })

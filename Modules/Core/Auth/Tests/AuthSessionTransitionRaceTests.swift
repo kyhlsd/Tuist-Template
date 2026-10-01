@@ -24,7 +24,9 @@ struct AuthSessionTransitionRaceTests {
         let gate = RefreshGate()
         let session = AuthSession(store: store, refresh: gate.refresh)
         await store.armLoadGate()
-        let pending = Task { [oldTokens] in try await session.refreshedAccessToken(rejected: oldTokens.accessToken) }
+        let pending = Task { [oldTokens] in
+            try await session.refreshedAccessToken(rejected: session.rejecting(oldTokens.accessToken))
+        }
         await store.waitUntilLoadEntered()
 
         let signOut = Task { try await session.signOut() }
@@ -46,7 +48,9 @@ struct AuthSessionTransitionRaceTests {
         let gate = RefreshGate()
         let session = AuthSession(store: store, refresh: gate.refresh)
         await store.armLoadGate()
-        let pending = Task { [oldTokens] in try await session.refreshedAccessToken(rejected: oldTokens.accessToken) }
+        let pending = Task { [oldTokens] in
+            try await session.refreshedAccessToken(rejected: session.rejecting(oldTokens.accessToken))
+        }
         await store.waitUntilLoadEntered()
 
         let signIn = Task { [latestTokens] in try await session.signIn(with: latestTokens) }
@@ -71,7 +75,9 @@ struct AuthSessionTransitionRaceTests {
         let session = AuthSession(store: store, refresh: gate.refresh)
         var states = await session.states().makeAsyncIterator()
         _ = await states.next() // 현재 상태(.signedIn)
-        let pending = Task { [oldTokens] in try await session.refreshedAccessToken(rejected: oldTokens.accessToken) }
+        let pending = Task { [oldTokens] in
+            try await session.refreshedAccessToken(rejected: session.rejecting(oldTokens.accessToken))
+        }
         await gate.waitUntilEntered()
         try await session.signIn(with: latestTokens)
         _ = await states.next() // 로그인(.signedIn)
@@ -93,11 +99,13 @@ struct AuthSessionTransitionRaceTests {
         let refreshedTokens = AuthTokens(accessToken: "refreshed-access", refreshToken: "refreshed-refresh")
         let gate = RefreshGate()
         let session = AuthSession(store: InMemoryTokenStore(tokens: oldTokens), refresh: gate.refresh)
-        let stale = Task { [oldTokens] in try await session.refreshedAccessToken(rejected: oldTokens.accessToken) }
+        let stale = Task { [oldTokens] in
+            try await session.refreshedAccessToken(rejected: session.rejecting(oldTokens.accessToken))
+        }
         await gate.waitUntilEntered(count: 1)
         try await session.signIn(with: latestTokens)
         let current = Task { [latestTokens] in
-            try await session.refreshedAccessToken(rejected: latestTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: session.rejecting(latestTokens.accessToken))
         }
         await gate.waitUntilEntered(count: 2)
 
@@ -106,7 +114,7 @@ struct AuthSessionTransitionRaceTests {
         // 이전 호출이 새 세션의 갱신을 떼어 냈다면 다음 401 이 같은 refresh token 으로 또 갱신한다.
         try #require(await session.isRefreshInFlight)
         let joining = Task { [latestTokens] in
-            try await session.refreshedAccessToken(rejected: latestTokens.accessToken)
+            try await session.refreshedAccessToken(rejected: session.rejecting(latestTokens.accessToken))
         }
         await gate.resume(with: .success(refreshedTokens))
 
@@ -122,9 +130,9 @@ struct AuthSessionTransitionRaceTests {
         let session = AuthSession(store: FailingTokenStore(tokens: oldTokens, failsClear: true), refresh: unusedRefresh)
         _ = try? await session.signOut()
 
-        #expect(try await session.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken().value == nil)
         await #expect(throws: AuthenticationError.sessionExpired) {
-            try await session.refreshedAccessToken(rejected: nil)
+            try await session.refreshedAccessToken(rejected: session.rejecting(nil))
         }
         #expect(await session.states().first { _ in true } == .signedOut)
     }
@@ -135,9 +143,9 @@ struct AuthSessionTransitionRaceTests {
             store: FailingTokenStore(tokens: oldTokens, failsClear: true),
             refresh: { _ in throw AuthenticationError.sessionExpired }
         )
-        _ = try? await session.refreshedAccessToken(rejected: oldTokens.accessToken)
+        _ = try? await session.refreshedAccessToken(rejected: session.rejecting(oldTokens.accessToken))
 
-        #expect(try await session.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken().value == nil)
     }
 
     @Test("삭제에 실패한 뒤 로그인하면 새 토큰을 쓴다")
@@ -147,7 +155,7 @@ struct AuthSessionTransitionRaceTests {
 
         try await session.signIn(with: latestTokens)
 
-        #expect(try await session.currentAccessToken() == latestTokens.accessToken)
+        #expect(try await session.currentAccessToken().value == latestTokens.accessToken)
     }
 
     @Test("로그아웃 삭제가 끝나기 전의 읽기도 이전 토큰을 쓰지 않는다")
@@ -158,12 +166,12 @@ struct AuthSessionTransitionRaceTests {
         await store.waitUntilClearEntered()
 
         // 저장소를 읽으려 하면 붙잡힌 삭제 뒤로 줄을 서서 여기서 멈춘다(시간 제한).
-        #expect(try await session.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken().value == nil)
         await store.failClear()
         await #expect(throws: FailingTokenStore.Failure.self) {
             try await signOut.value
         }
-        #expect(try await session.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken().value == nil)
     }
 
     @Test("로그아웃 삭제와 함께 진행한 로그인의 저장도 실패하면 이전 토큰을 쓰지 않는다")
@@ -182,7 +190,7 @@ struct AuthSessionTransitionRaceTests {
             try await signIn.value
         }
 
-        #expect(try await session.currentAccessToken() == nil)
+        #expect(try await session.currentAccessToken().value == nil)
     }
 
     // MARK: 구독 정리 (R1-9)
@@ -200,5 +208,58 @@ struct AuthSessionTransitionRaceTests {
 
         // 정리되지 않으면 여기서 끝나지 않아 시간 제한에 걸린다.
         await session.waitUntilNoSubscribers()
+    }
+
+    // MARK: 요청을 보낸 뒤의 전환 (리뷰 템플릿 R1-3)
+
+    @Test("토큰을 읽은 뒤 다른 계정으로 로그인하면 그 토큰의 401 은 새 토큰을 돌려주지 않고 세션 만료로 끝난다")
+    func refresh_signedInAgainAfterRead_throwsSessionExpiredWithoutNewToken() async throws {
+        let gate = RefreshGate()
+        let session = AuthSession(store: InMemoryTokenStore(tokens: oldTokens), refresh: gate.refresh)
+        let rejected = try await session.currentAccessToken()
+
+        try await session.signOut()
+        try await session.signIn(with: latestTokens)
+
+        await #expect(throws: AuthenticationError.sessionExpired) {
+            try await session.refreshedAccessToken(rejected: rejected)
+        }
+        #expect(await gate.callCount == 0)
+        #expect(try await session.currentAccessToken().value == latestTokens.accessToken)
+    }
+
+    @Test("토큰을 읽는 중에 다른 계정으로 로그인하면 읽은 토큰의 401 은 새 토큰을 돌려주지 않는다")
+    func refresh_signedInDuringRead_throwsSessionExpiredWithoutNewToken() async throws {
+        let store = GatedLoadTokenStore(tokens: oldTokens)
+        let gate = RefreshGate()
+        let session = AuthSession(store: store, refresh: gate.refresh)
+        await store.armLoadGate()
+        let read = Task { try await session.currentAccessToken() }
+        await store.waitUntilLoadEntered()
+
+        let signIn = Task { [latestTokens] in try await session.signIn(with: latestTokens) }
+        // 로그인이 세대를 올린 뒤에 읽기를 끝낸다. 읽기가 먼저 줄을 섰으므로 이전 계정 토큰을 받는다.
+        await session.waitUntilGeneration(atLeast: 1)
+        await store.resumeLoad()
+        try await signIn.value
+        let rejected = try await read.value
+
+        #expect(rejected.value == oldTokens.accessToken)
+        await #expect(throws: AuthenticationError.sessionExpired) {
+            try await session.refreshedAccessToken(rejected: rejected)
+        }
+        #expect(await gate.callCount == 0)
+    }
+
+    @Test("로그인 전에 읽은 값의 401 은 그 뒤 로그인했어도 새 토큰을 돌려주지 않는다")
+    func refresh_signedInAfterSignedOutRead_throwsSessionExpired() async throws {
+        let session = AuthSession(store: InMemoryTokenStore(), refresh: unusedRefresh)
+        let rejected = try await session.currentAccessToken()
+
+        try await session.signIn(with: latestTokens)
+
+        await #expect(throws: AuthenticationError.sessionExpired) {
+            try await session.refreshedAccessToken(rejected: rejected)
+        }
     }
 }

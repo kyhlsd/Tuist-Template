@@ -60,17 +60,23 @@ public actor AuthSession: AccessTokenProviding, SessionManaging {
         self.logger = logger
     }
 
-    public func currentAccessToken() async throws -> String? {
-        try await loadTokens()?.accessToken
+    public func currentAccessToken() async throws -> SessionToken {
+        // 세대는 읽기 전에 잡는다. 읽는 동안 세션이 바뀌면 이 토큰의 401 은 갱신하지 않는다.
+        let readGeneration = generation
+        return try await SessionToken(value: loadTokens()?.accessToken, generation: readGeneration)
     }
 
     /// 새 access token 을 돌려준다.
     ///
-    /// - Parameter rejected: 401 을 받은 요청이 쓴 access token. 저장소의 토큰이 이미
+    /// - Parameter rejected: 401 을 받은 요청이 `currentAccessToken()` 에서 받은 값. 저장소의 토큰이 이미
     ///   이것과 다르면 다른 호출이 갱신을 끝낸 것이므로 네트워크 호출 없이 현재 토큰을 쓴다.
-    /// - Throws: 저장소를 읽거나 갱신하는 중에 로그인·로그아웃으로 세션이 바뀌었으면
+    /// - Throws: 요청을 보낸 뒤나 저장소를 읽거나 갱신하는 중에 로그인·로그아웃으로 세션이 바뀌었으면
     ///   `AuthenticationError.sessionExpired`. 이전 세션의 요청을 새 토큰으로 다시 보내지 않는다.
-    public func refreshedAccessToken(rejected: String?) async throws -> String {
+    public func refreshedAccessToken(rejected: SessionToken) async throws -> String {
+        // 요청이 토큰을 읽은 뒤 세션이 바뀌었으면 401 은 이전 세션의 것이다. 진행 중인 갱신도 새 세션의 것이다.
+        guard rejected.generation == generation else {
+            throw AuthenticationError.sessionExpired
+        }
         if let inFlight {
             return try await inFlight.value.accessToken
         }
@@ -85,7 +91,7 @@ public actor AuthSession: AccessTokenProviding, SessionManaging {
         guard generation == startGeneration else {
             throw AuthenticationError.sessionExpired
         }
-        if current.accessToken != rejected {
+        if current.accessToken != rejected.value {
             return current.accessToken
         }
 
@@ -300,6 +306,11 @@ public actor AuthSession: AccessTokenProviding, SessionManaging {
 
 /// `@testable import` 하는 테스트만 쓴다. sleep 없이 actor 안의 전환 시점을 기다리기 위한 것이다.
 extension AuthSession {
+    /// 지금 세대에서 `value` 를 붙여 보낸 요청이 401 을 받은 것으로 본다.
+    func rejecting(_ value: String?) -> SessionToken {
+        SessionToken(value: value, generation: generation)
+    }
+
     /// 진행 중인 갱신이 있는지.
     var isRefreshInFlight: Bool {
         inFlight != nil
