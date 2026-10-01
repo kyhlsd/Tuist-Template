@@ -183,7 +183,7 @@ Debug는 plist가 있어도 수집하지 않는다(시끄럽고 dSYM이 없으�
 
 | 위치 | 값 |
 |---|---|
-| 이슈 domain | `network.<operationID>.<errorType>`. operation을 모르면 `unknown` |
+| 이슈 domain | `diagnostic.<operationID>.<errorType>`. operation을 모르면 `unknown`(저장소 실패 등) |
 | code | `URLError` 코드. 없으면 `0` |
 | userInfo `summary` | `URLError(-1004)`, `DecodingError` 같은 한 단어 요약 |
 | userInfo `requestID` | 서버 로그에서 찾을 ID. 전송 실패면 없다 |

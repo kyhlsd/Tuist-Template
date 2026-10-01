@@ -12,12 +12,15 @@ public extension DiagnosticReporting {
     /// Repository 의 Persistence 호출 `catch` 에서 부른다. 결과를 기다리지 않는다.
     /// App 도 디스크 저장소를 열지 못했을 때 같은 형식으로 보고하려고 쓴다.
     func reportPersistenceFailure(_ error: PersistenceError) {
+        // 연관값이 없는 case 라 case 이름만 나온다.
+        let caseName = String(describing: error)
         report(DiagnosticFailure(
             operationID: nil,
-            errorType: PersistenceReport.errorType,
+            // case 마다 fingerprint 가 달라야 한 원인이 다른 원인의 보고를 억제하지 않는다.
+            // `NetworkFailure` 의 `타입.case` 형식을 따른다.
+            errorType: "\(PersistenceReport.errorType).\(caseName)",
             errorCode: nil,
-            // 연관값이 없는 case 라 case 이름만 나온다.
-            summary: String(describing: error),
+            summary: caseName,
             requestID: nil
         ))
     }
