@@ -97,7 +97,7 @@ final class AppContainer {
         Self.startClearingItemCache(of: cachedItemRepository, whenSignedOutIn: authRepository)
     }
 
-    /// 세션 상태를 구독해 로그인 상태가 아니게 될 때마다 항목 캐시를 비운다. 세션 상태 스트림은 끝나지 않으므로 앱 수명 동안 돈다.
+    /// 세션 상태를 구독해 로그인 상태가 아니게 되거나 새로 로그인할 때마다 항목 캐시를 비운다. 세션 상태 스트림은 끝나지 않으므로 앱 수명 동안 돈다.
     ///
     /// 앱은 돌려받은 Task 를 버린다. 테스트는 끝나는 상태 스트림을 넘기고 Task 를 기다려 연결을 확인한다
     /// (`AppContainerItemCacheInvalidationTests`).
@@ -111,16 +111,20 @@ final class AppContainer {
         }
     }
 
-    /// 세션이 로그인 상태가 아니게 되면(로그아웃·만료) 항목 캐시를 비운다. `statuses` 가 끝날 때까지 돈다.
+    /// 세션이 로그인 상태가 아니게 되거나(로그아웃·만료) 새로 로그인하면 항목 캐시를 비운다. `statuses` 가 끝날 때까지 돈다.
     ///
     /// 원격은 401 도 `.unavailable` 로 올리므로, 비우지 않으면 로그아웃 뒤나 다른 계정에서 이전 계정의 항목이 캐시에서 나온다.
-    /// 첫 상태(현재 상태)가 `.signedOut` 이면 앱 시작 때도 비운다. 분기는 `AppContainerItemCacheInvalidationTests` 가 고정한다.
+    /// 첫 상태(현재 상태)가 `.signedOut` 이면 앱 시작 때도 비운다. 첫 `.signedIn` 은 저장된 세션을 찾은 것이라 비우지 않고,
+    /// 그 뒤의 `.signedIn` 은 로그인이라 비운다. 로그아웃 없이 다른 계정으로 로그인할 수 있고, 로그아웃 뒤에 끝난
+    /// 이전 계정의 요청이 캐시를 채웠을 수 있어서다. 분기는 `AppContainerItemCacheInvalidationTests` 가 고정한다.
     static func clearItemCacheWhenSignedOut(statuses: AsyncStream<SessionStatus>, clear: () async -> Void) async {
+        var isInitialStatus = true
         for await status in statuses {
+            defer { isInitialStatus = false }
             switch status {
-            case .signedIn:
+            case .signedIn where isInitialStatus:
                 continue
-            case .signedOut, .expired:
+            case .signedIn, .signedOut, .expired:
                 await clear()
             }
         }

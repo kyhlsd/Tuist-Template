@@ -66,6 +66,28 @@ struct AppContainerItemCacheInvalidationTests {
         #expect(clearCount == 1)
     }
 
+    @Test("로그아웃 없이 다시 로그인하면 이전 계정의 캐시를 비운다")
+    func clearItemCache_signedInAgain_clearsOnce() async {
+        var clearCount = 0
+
+        await AppContainer.clearItemCacheWhenSignedOut(statuses: Self.stream(of: [.signedIn, .signedIn])) {
+            clearCount += 1
+        }
+
+        #expect(clearCount == 1)
+    }
+
+    @Test("로그아웃 상태에서 로그인하면 로그인 때도 비운다")
+    func clearItemCache_signedOutThenSignedIn_clearsTwice() async {
+        var clearCount = 0
+
+        await AppContainer.clearItemCacheWhenSignedOut(statuses: Self.stream(of: [.signedOut, .signedIn])) {
+            clearCount += 1
+        }
+
+        #expect(clearCount == 2)
+    }
+
     /// `statuses` 를 차례로 보낸 뒤 끝나는 스트림.
     private static func stream(of statuses: [SessionStatus]) -> AsyncStream<SessionStatus> {
         let (stream, continuation) = AsyncStream<SessionStatus>.makeStream()
