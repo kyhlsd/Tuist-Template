@@ -9,6 +9,8 @@ OpenAPI 명세(`OpenAPI/openapi.yaml`)에서 생성한 API 클라이언트와, �
 - **명세 주도**: 명세를 고치고 스크립트를 돌리면 `APIProtocol`, 요청·응답 타입이 다시 만들어진다. 명세와 코드가 어긋나면 컴파일 단계에서 드러난다.
 - **자동 인증**: 공개 operation 을 뺀 모든 요청에 `Authorization: Bearer <access token>` 이 붙는다.
 - **토큰 갱신**: 401 을 받으면 refresh token 으로 한 번 갱신하고 원 요청을 한 번 다시 보낸다. 동시에 401 이 여러 개 와도 refresh 호출은 한 번이다.
+  요청을 보낸 뒤 로그인·로그아웃으로 세션이 바뀌었으면 갱신하지 않고 `AuthenticationError.sessionExpired` 로 끝난다.
+  한 번만 읽을 수 있는 body 의 요청은 다시 보낼 수 없어 401 응답을 그대로 돌려준다.
 - **세션 만료 알림**: refresh 가 400/401 로 거절되면 토큰을 지우고 `AuthSession.states()` 에 `.expired` 를 한 번 보낸다. 네트워크 문제로 refresh 가 실패하면 토큰은 유지한다.
 - **재시도**: 멱등 요청(GET/HEAD/PUT/DELETE)은 연결 끊김·호스트 연결 실패·502/503 에서 최대 2회(0.5초, 1초 뒤) 다시 보낸다. 타임아웃과 504, 취소는 다시 보내지 않는다.
 - **request ID**: 모든 요청에 `X-Request-ID` 헤더(UUID)가 붙는다. 요청 로그에도 `rid=<id>` 로 같은 값이 찍혀 서버 로그와 이을 수 있다.

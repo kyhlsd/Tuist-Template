@@ -33,6 +33,7 @@ Modules/Core/Navigation/
 │   └── Router.swift             데모 앱·프리뷰용 단독 라우터
 ├── Testing/Sources/
 │   └── SpyRouter.swift          요청을 기록만 하는 테스트 더블 (NavigationTesting)
+├── Demo/Sources/                NavigationDemo. Router 로 push·pop·모달 표시·교체·닫기를 실제 화면으로 확인한다
 └── Tests/
 
 App/Sources/
@@ -268,11 +269,13 @@ appDelegate.router.resumePending()
 import NavigationTesting
 
 let router = SpyRouter()
-let viewModel = HomeViewModel(repository: stub, router: router)
+let viewModel = HomeViewModel(fetchItems: StubFetchItemsUseCase(result: .success([item])), router: router)
 
 viewModel.select(item)
 
 #expect(router.pushedRoutes == [HomeRoute.detail(id: item.id)])
+
+// 모달을 띄우고 닫는 뷰모델이라면
 #expect(router.presentedRoutes == [.init(route: HomeRoute.detail(id: "1"), style: .sheet)])
 #expect(router.dismissCount == 1)
 ```
@@ -317,12 +320,14 @@ xcrun simctl push <udid> com.olivebridge.tuistapp.dev payload.apns
 @State private var router = Router()
 
 NavigationStack(path: $router.path) {
-    HomeView(viewModel: HomeViewModel(repository: stub, router: router))
+    HomeView(viewModel: HomeViewModel(fetchItems: stubFetchItems, router: router))
         .navigationDestination(for: HomeRoute.self) { route in ... }
 }
 ```
 
 `present`는 `router.presented`에 기록만 한다. 데모에서 모달을 보려면 이 값을 보고 직접 띄운다.
+사용자가 쓸어 닫으면 `Router` 가 스스로 비우지 않으므로 바인딩의 `set(false)` 에서 `dismiss()` 를 부른다.
+`NavigationDemoRootView.swift` 의 `isPresented(_:)` 가 견본이다.
 
 ---
 

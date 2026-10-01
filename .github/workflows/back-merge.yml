@@ -3,7 +3,7 @@
 #
 # develop 이 없으면(템플릿 직후) notice 만 남기고 끝난다. 이미 열린 역머지 PR 이 있으면 새로 열지 않는다.
 # GITHUB_TOKEN 으로 PR 을 만들려면 저장소 Settings > Actions > General 의
-#   "Allow GitHub Actions to create and approve pull requests" 가 켜져 있어야 한다(README '배포를 켜기 전').
+#   "Allow GitHub Actions to create and approve pull requests" 가 켜져 있어야 한다(README '복제한 뒤 직접 할 일' 의 'GitHub 저장소 설정').
 # GITHUB_TOKEN 으로 만든 PR 은 CI 를 새로 트리거하지 않는다. 대신 PR head 가 main 의 SHA 라
 #   main 푸시 때 돈 CI 결과가 그 SHA 에 붙어 있다.
 # 러너·액션 고정 방식은 ci.yml 과 같다.
@@ -62,6 +62,6 @@ jobs:
           )"
           # 원인은 gh 의 stderr 에 있다. 권한 설정은 가장 흔한 원인일 뿐이라 안내에서 단정하지 않는다.
           if ! gh pr create --base develop --head main --title "chore: main 을 develop 에 역머지" --body "$body"; then
-            echo "::error::역머지 PR 을 만들지 못했습니다. 원인은 바로 위 gh 출력을 보세요. 권한 오류(\"not permitted to create\" 등)라면 Settings > Actions > General 의 'Allow GitHub Actions to create and approve pull requests' 를 켭니다(README '배포를 켜기 전')."
+            echo "::error::역머지 PR 을 만들지 못했습니다. 원인은 바로 위 gh 출력을 보세요. 권한 오류(\"not permitted to create\" 등)라면 Settings > Actions > General 의 'Allow GitHub Actions to create and approve pull requests' 를 켭니다(README '복제한 뒤 직접 할 일' 의 'GitHub 저장소 설정')."
             exit 1
           fi
