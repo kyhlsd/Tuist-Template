@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: 도구 설치 (mise)
-        uses: jdx/mise-action@9149ea85001c7435d5a66bb127d6a1b6227cb0a5 # v5.0.0
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
 
       - name: 포맷 검사 (SwiftFormat)
         run: swiftformat --lint .
@@ -84,7 +84,7 @@ jobs:
       # overwrite: 재실행이 같은 이름으로 다시 올려도 충돌하지 않게 한다.
       - name: 테스트 결과 업로드
         if: failure() && steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: TestResults.xcresult
           path: ${{ runner.temp }}/TestResults.xcresult
@@ -97,7 +97,7 @@ jobs:
       # 경로는 SnapshotSupport.swift 의 recordFailure 가 쓰는 기본 위치(테스트 소스 옆)다.
       - name: 스냅샷 실패 이미지 업로드
         if: failure() && steps.test.outcome == 'failure'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: SnapshotFailures
           path: Modules/**/__Snapshots__/__Failures__/
